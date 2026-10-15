@@ -153,33 +153,33 @@ public class AprilTag {
     private void ProcessDetections(AprilTagDetection detection, AprilTagData Data) {
         // Step through the list of detections and display info for each one.
 
-
-    switch (detection.id) {
-        case 20:  //Blue April Tag ID
-
-            Data.SetBlue(detection.ftcPose.range, detection.ftcPose.bearing);
-            opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Blue.Range);
-            opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Blue.Bearing);
-            detectionState.isBlueGoalAprilTagDetected=true;
-            break; // Exits the switch statement
-        case 24: //Red April Tag ID
-            Data.SetRed(detection.ftcPose.range, detection.ftcPose.bearing);
-            opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Red.Range);
-            opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Red.Bearing);
-            detectionState.isRedGoalAprilTagDetected=true;
-            break;
-        // ... more cases
-        case 21:	//GPP
-            Data.SetCode(AprilTagData.AprilCode.GPP);
-            break;
-        case 22:	//PGP
-            Data.SetCode(AprilTagData.AprilCode.PGP);
-            break;
-        case 23: 	//PPG
-            Data.SetCode(AprilTagData.AprilCode.PPG);
-            break;
-
-    }
+//
+//    switch (detection.id) {
+//        case 20:  //Blue April Tag ID
+//
+//            Data.SetBlue(detection.ftcPose.range, detection.ftcPose.bearing);
+//            opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Blue.Range);
+//            opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Blue.Bearing);
+//            detectionState.isBlueGoalAprilTagDetected=true;
+//            break; // Exits the switch statement
+//        case 24: //Red April Tag ID
+//            Data.SetRed(detection.ftcPose.range, detection.ftcPose.bearing);
+//            opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Red.Range);
+//            opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Red.Bearing);
+//            detectionState.isRedGoalAprilTagDetected=true;
+//            break;
+//        // ... more cases
+//        case 21:	//GPP
+//            Data.SetCode(AprilTagData.AprilCode.GPP);
+//            break;
+//        case 22:	//PGP
+//            Data.SetCode(AprilTagData.AprilCode.PGP);
+//            break;
+//        case 23: 	//PPG
+//            Data.SetCode(AprilTagData.AprilCode.PPG);
+//            break;
+//
+//    }
 
 
 }
@@ -212,26 +212,26 @@ public class AprilTag {
     // function that displays telemetry on the drivers station
     private void telemetryAprilTag(AprilTagDetection detection) {
 
-        if (detection.metadata != null) {
-            opMode.telemetry.addLine(String.format("\n==== (ID %d) %s", detection.id, detection.metadata.name));
-            // Only use tags that don't have Obelisk in them
-            if (!detection.metadata.name.contains("Obelisk")) {
-                opMode.telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f  (inch)",
-                        detection.rawPose.x,
-                        detection.rawPose.y,
-                        detection.rawPose.z));
-                opMode.telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
-                        detection.robotPose.getOrientation().getPitch(AngleUnit.DEGREES),
-                        detection.robotPose.getOrientation().getRoll(AngleUnit.DEGREES),
-                        detection.robotPose.getOrientation().getYaw(AngleUnit.DEGREES)));
-                opMode.telemetry.addData("Range", "%5.1f inches", detection.ftcPose.range);
-                opMode.telemetry.addData("Bearing", "%3.0f degrees", detection.ftcPose.bearing);
-            }
-        } else {
-            opMode.telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
-            opMode.telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
-        }
-           opMode.telemetry.addData("FPS=",visionPortal.getFps());
+//        if (detection.metadata != null) {
+//            opMode.telemetry.addLine(String.format("\n==== (ID %d) %s", detection.id, detection.metadata.name));
+//            // Only use tags that don't have Obelisk in them
+//            if (!detection.metadata.name.contains("Obelisk")) {
+//                opMode.telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f  (inch)",
+//                        detection.rawPose.x,
+//                        detection.rawPose.y,
+//                        detection.rawPose.z));
+//                opMode.telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
+//                        detection.robotPose.getOrientation().getPitch(AngleUnit.DEGREES),
+//                        detection.robotPose.getOrientation().getRoll(AngleUnit.DEGREES),
+//                        detection.robotPose.getOrientation().getYaw(AngleUnit.DEGREES)));
+//                opMode.telemetry.addData("Range", "%5.1f inches", detection.ftcPose.range);
+//                opMode.telemetry.addData("Bearing", "%3.0f degrees", detection.ftcPose.bearing);
+//            }
+//        } else {
+//            opMode.telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
+//            opMode.telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
+//        }
+//           opMode.telemetry.addData("FPS=",visionPortal.getFps());
 
 
 
