@@ -53,7 +53,7 @@ public class Drivetrain {
     public static double ki=.0025;
     public static double kd=0;
     PIDController controller = new PIDController(kp,ki,kd);
-
+    private boolean zeroPosePending = false;
     public double yticks;
     public double xticks;
     public AprilTagData TagData;
@@ -184,11 +184,15 @@ public class Drivetrain {
                 wheelSpeeds.frontRightMetersPerSecond
         });
 
-       if(driver.back){
+        // updated to make sure the IMU is ready after reset.
+        if (driver.back) {
+            drive.localizer.resetPinpointIMU();
+            zeroPosePending = true;
+        }
 
-           drive.localizer.resetPinpointIMU();
-           drive.localizer.setPose(new Pose2d(0,0,0));
-
-       }
+        if (zeroPosePending && drive.localizer.GetIMUStatus().equals("READY")) {
+            drive.localizer.setPose(new Pose2d(0, 0, 0));
+            zeroPosePending = false;
+        }
     }
 }
