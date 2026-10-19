@@ -3,8 +3,6 @@ package org.firstinspires.ftc.teamcode.Perception;
 
 import android.util.Size;
 
-
-import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
@@ -14,12 +12,14 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
-
+import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
+
 @Config
 public class AprilTag {
     private LinearOpMode opMode;
@@ -70,7 +70,7 @@ public class AprilTag {
                 //.setDrawCubeProjection(false)
                 .setDrawTagOutline(true)
                 //.setTagFamily(AprilTagProcessor.TagFamily.TAG_36h11)
-                .setTagLibrary(AprilTagGameDatabase.getDecodeTagLibrary())
+                .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
                 .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
                 .setCameraPose(cameraPosition, cameraOrientation)
 
@@ -152,41 +152,38 @@ public class AprilTag {
     // Process Detections and storing in AprilTagData to be used with other classes
     private void ProcessDetections(AprilTagDetection detection, AprilTagData Data) {
         // Step through the list of detections and display info for each one.
+        if (detection instanceof AprilTagClusterDetection) {
+            AprilTagClusterDetection cell = (AprilTagClusterDetection) detection;
 
-//
-//    switch (detection.id) {
-//        case 20:  //Blue April Tag ID
-//
-//            Data.SetBlue(detection.ftcPose.range, detection.ftcPose.bearing);
-//            opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Blue.Range);
-//            opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Blue.Bearing);
-//            detectionState.isBlueGoalAprilTagDetected=true;
-//            break; // Exits the switch statement
-//        case 24: //Red April Tag ID
-//            Data.SetRed(detection.ftcPose.range, detection.ftcPose.bearing);
-//            opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Red.Range);
-//            opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Red.Bearing);
-//            detectionState.isRedGoalAprilTagDetected=true;
-//            break;
-//        // ... more cases
-//        case 21:	//GPP
-//            Data.SetCode(AprilTagData.AprilCode.GPP);
-//            break;
-//        case 22:	//PGP
-//            Data.SetCode(AprilTagData.AprilCode.PGP);
-//            break;
-//        case 23: 	//PPG
-//            Data.SetCode(AprilTagData.AprilCode.PPG);
-//            break;
-//
-//    }
+            if (Math.abs(cell.ftcPose.roll) <= 90) {
+                if(cell.metadata.name.startsWith("BLUE")) {
+                    if (!detectionState.isBlueGoalAprilTagDetected || cell.ftcPose.range < Data.Blue.Range) {
+                        Data.SetBlue(cell.ftcPose.range, cell.ftcPose.bearing);
+                        opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Blue.Range);
+                        opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Blue.Bearing);
+                        detectionState.isBlueGoalAprilTagDetected = true;
+                    }
+
+                }
+                else if (cell.metadata.name.startsWith("RED")) {
+                    if (!detectionState.isRedGoalAprilTagDetected || cell.ftcPose.range < Data.Red.Range) {
+                        Data.SetRed(cell.ftcPose.range, cell.ftcPose.bearing);
+                        opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Red.Range);
+                        opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Red.Bearing);
+                        detectionState.isRedGoalAprilTagDetected=true;
+                    }
+                }
+
+            }
+        }
+
 
 
 }
 
     private void ProcessAprilTags() {
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
-        opMode.telemetry.addData("# AprilTags Detected", currentDetections.size());
+        opMode.telemetry.addData("# AprilTags Detected...", currentDetections.size());
         detectionState.ResetStates();
         if (currentDetections.isEmpty()){
             detectionState.isAnyTagDetected = false;
@@ -210,30 +207,18 @@ public class AprilTag {
     }
 
     // function that displays telemetry on the drivers station
-    private void telemetryAprilTag(AprilTagDetection detection) {
-
-//        if (detection.metadata != null) {
-//            opMode.telemetry.addLine(String.format("\n==== (ID %d) %s", detection.id, detection.metadata.name));
-//            // Only use tags that don't have Obelisk in them
-//            if (!detection.metadata.name.contains("Obelisk")) {
-//                opMode.telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f  (inch)",
-//                        detection.rawPose.x,
-//                        detection.rawPose.y,
-//                        detection.rawPose.z));
-//                opMode.telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
-//                        detection.robotPose.getOrientation().getPitch(AngleUnit.DEGREES),
-//                        detection.robotPose.getOrientation().getRoll(AngleUnit.DEGREES),
-//                        detection.robotPose.getOrientation().getYaw(AngleUnit.DEGREES)));
-//                opMode.telemetry.addData("Range", "%5.1f inches", detection.ftcPose.range);
-//                opMode.telemetry.addData("Bearing", "%3.0f degrees", detection.ftcPose.bearing);
-//            }
-//        } else {
-//            opMode.telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
-//            opMode.telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
-//        }
-//           opMode.telemetry.addData("FPS=",visionPortal.getFps());
-
-
-
-    }   // end method telemetryAprilTag()
+    private void telemetryAprilTag (AprilTagDetection detection) {
+        if (detection instanceof AprilTagClusterDetection) {
+            AprilTagClusterDetection cell = (AprilTagClusterDetection) detection;
+            opMode.telemetry.addLine(String.format("n==== %s (%d%% of tags seen)",cell.metadata.name, cell.percentClusterFound));
+            opMode.telemetry.addData("Range","%5.1f inches", cell.ftcPose.range);
+            opMode.telemetry.addData("Bearing", "%3 0f degrees", cell.ftcPose.bearing);
+            opMode.telemetry.addData("Roll", "%3. 0f degrees", cell.ftcPose.roll);
+        } else {
+            AprilTagSingleDetection tag = (AprilTagSingleDetection) detection;
+            opMode. telemetry.addLine(String.format("/n====(ID %d) not part of a cluster", tag.id));
+            opMode.telemetry.addLine(String.format("Center %6.0f %6.0f    (pixels)",tag.center.x,tag.center.y));
+        }
+        opMode.telemetry.addData("FPS=",visionPortal.getFps());
+    }
 }// end aprilTag class
