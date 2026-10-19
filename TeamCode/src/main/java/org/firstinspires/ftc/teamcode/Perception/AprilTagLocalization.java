@@ -29,6 +29,7 @@
 
 package org.firstinspires.ftc.teamcode.Perception;
 
+import android.annotation.SuppressLint;
 import android.util.Size;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -40,9 +41,11 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
 
@@ -118,7 +121,7 @@ public class AprilTagLocalization extends LinearOpMode {
         // Wait for the DS start button to be touched.
         telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
         telemetry.addData(">", "Touch START to start OpMode");
-        //telemetry.update();
+        telemetry.update();
         waitForStart();
 
         while (opModeIsActive()) {
@@ -126,7 +129,7 @@ public class AprilTagLocalization extends LinearOpMode {
             telemetryAprilTag();
 
             // Push telemetry to the Driver Station.
-            //telemetry.update();
+            telemetry.update();
 
             // Save CPU resources; can resume streaming when needed.
 
@@ -153,7 +156,7 @@ public class AprilTagLocalization extends LinearOpMode {
                 //.setDrawCubeProjection(false)
                 .setDrawTagOutline(true)
                 //.setTagFamily(AprilTagProcessor.TagFamily.TAG_36h11)
-                .setTagLibrary(AprilTagGameDatabase.getDecodeTagLibrary())
+                .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
                 .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
                 .setCameraPose(cameraPosition, cameraOrientation)
                 //.setLensIntrinsics(fx, fy, cx, cy) //1280 x 800
@@ -225,37 +228,44 @@ public class AprilTagLocalization extends LinearOpMode {
     /**
      * Add telemetry about AprilTag detections.
      */
+    @SuppressLint("DefaultLocale")
     private void telemetryAprilTag() {
 
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
-//        telemetry.addData("# AprilTags Detected", currentDetections.size());
-//
-//        // Step through the list of detections and display info for each one.
-//        for (AprilTagDetection detection : currentDetections) {
-//            if (detection.metadata != null) {
-//                telemetry.addLine(String.format("\n==== (ID %d) %s", detection.id, detection.metadata.name));
-//                // Only use tags that don't have Obelisk in them
-//                if (!detection.metadata.name.contains("Obelisk")) {
-//                    telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f  (inch)",
-//                            detection.rawPose.x,
-//                            detection.rawPose.y,
-//                            detection.rawPose.z));
-//                    telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
-//                            detection.robotPose.getOrientation().getPitch(AngleUnit.DEGREES),
-//                            detection.robotPose.getOrientation().getRoll(AngleUnit.DEGREES),
-//                            detection.robotPose.getOrientation().getYaw(AngleUnit.DEGREES)));
-//                    telemetry.addData("Range",  "%5.1f inches", detection.ftcPose.range);
-//                    telemetry.addData("Bearing","%3.0f degrees", detection.ftcPose.bearing);
-//                }
-//            } else {
-//                telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
-//                telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
-//            }
-//        }   // end for() loop
-//
-//        // Add "key" information to telemetry
-//        telemetry.addLine("\nkey:\nXYZ = X (Right), Y (Forward), Z (Up) dist.");
-//        telemetry.addLine("PRY = Pitch, Roll & Yaw (XYZ Rotation)");
+        telemetry.addData("# AprilTags Detected", currentDetections.size());
+
+        // Step through the list of detections and display info for each one.
+        for (AprilTagDetection detection : currentDetections) {
+            if (detection instanceof AprilTagClusterDetection) {
+                AprilTagClusterDetection cell = (AprilTagClusterDetection) detection;
+                telemetry.addLine(String.format("\n==== %s (%d%% of tags seen)",cell.metadata.name, cell.percentClusterFound));
+                telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f (inch)",
+                        cell.ftcPose.x,
+                        cell.ftcPose.y,
+                        cell.ftcPose.z));
+                telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
+                        cell.ftcPose.pitch,
+                        cell.ftcPose.roll,
+                        cell.ftcPose.yaw));
+                telemetry.addData("Range",  "%5.1f inches", cell.ftcPose.range);
+                telemetry.addData("Bearing","%3.0f degrees",cell.ftcPose.bearing);
+
+            } else {
+                AprilTagSingleDetection tag = (AprilTagSingleDetection) detection;
+                if (tag.metadata !=null) {
+                    telemetry.addLine(String.format("/n==== (ID %d) %s", tag.id,tag.metadata.name));
+                    telemetry.addData("Range", "%5,1f inches", tag.ftcPose.range);
+                    telemetry.addData("Bearing", "%3. 0f degrees", tag.ftcPose.bearing);
+                } else {
+                    telemetry.addLine(String.format("\n==== (ID %d) Unknown", tag.id));
+                    telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", tag.center.x, tag.center.y));
+                }
+            }
+        }   // end for() loop
+
+        // Add "key" information to telemetry
+        telemetry.addLine("\nkey:/nXYZ = X (Right), Y (Forward), Z (Up) dist.");
+        telemetry.addLine("PRY = Pitch, Roll & Yaw (XYZ Rotation)");
 
     }   // end method telemetryAprilTag()
 

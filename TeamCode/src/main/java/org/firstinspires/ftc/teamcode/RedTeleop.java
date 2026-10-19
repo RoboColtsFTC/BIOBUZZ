@@ -11,7 +11,7 @@ public class RedTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        Robot robot = new Robot(this, false, true, true,false,false);
+        Robot robot = new Robot(this, false, false, false,false,true);
 
         waitForStart();
 
