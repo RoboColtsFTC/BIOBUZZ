@@ -25,20 +25,13 @@ public final class BlueAutoFar extends LinearOpMode {
         drive.localizer.setPose(beginPose);
         Actions.runBlocking(drive.actionBuilder(beginPose)            //  .strafeToLinearHeading(new Vector2d(0,-10), Math.toRadians(-90))
              //   .turn(Math.toRadians(45))
-                .strafeToLinearHeading(new Vector2d(3,0), Math.toRadians(0)) // new TranslationalVelConstraint(10)
-//                             //   .waitSeconds(1)
+                .strafeToLinearHeading(new Vector2d(15,0), Math.toRadians(0)) // move from start into shooting position
+                .waitSeconds(1) // **** Add shooting here ****
+                .strafeToLinearHeading(new Vector2d(15,24), Math.toRadians(0))
+                .strafeToLinearHeading(new Vector2d(85,47), Math.toRadians(0))
 ////                .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto(850))
-//                        .strafeToLinearHeading(new Vector2d(3,20), Math.toRadians(0)) // new TranslationalVelConstraint(10)
-//                    //    .waitSeconds(1)
-//                .strafeToLinearHeading(new Vector2d(23,25), Math.toRadians(0))// new TranslationalVelConstraint(10)
-//                .strafeToLinearHeading(new Vector2d(-7,0), Math.toRadians(0))// new TranslationalVelConstraint(10)
-//                .strafeToLinearHeading(new Vector2d(-32,-13), Math.toRadians(0))// new TranslationalVelConstraint(10)
-//                .strafeToLinearHeading(new Vector2d(10,5), Math.toRadians(0))// new TranslationalVelConstraint(10)
-
 
                 .build());
-
-
 
     }
 }
