@@ -13,7 +13,7 @@ import org.firstinspires.ftc.teamcode.drivetrain.MecanumDrive;
 public final class RedAutoFar extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
-        Pose2d beginPose = new Pose2d(0, 0, Math.toRadians(90));
+        Pose2d beginPose = new Pose2d(0, 0, Math.toRadians(0));
         MecanumDrive drive = new MecanumDrive(hardwareMap, beginPose);
 
        Robot robot = new Robot(this,true);
@@ -24,10 +24,12 @@ public final class RedAutoFar extends LinearOpMode {
        // beginPose = new Pose2d(0, 0, Math.toRadians(0));
         drive.localizer.setPose(beginPose);
         Actions.runBlocking(drive.actionBuilder(beginPose)
-                .strafeToLinearHeading(new Vector2d(0,10), Math.toRadians(90))
-                .turn(Math.toRadians(-25))
-                .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto(1550))
-                .strafeToLinearHeading(new Vector2d(0 ,28), Math.toRadians(0))// new TranslationalVelConstraint(10)
+                //   .turn(Math.toRadians(45))
+                .strafeToLinearHeading(new Vector2d(15,0), Math.toRadians(0)) // move from start into shooting position
+                .waitSeconds(1) // **** Add shooting here ****
+                .strafeToLinearHeading(new Vector2d(15,24), Math.toRadians(0))
+                .strafeToLinearHeading(new Vector2d(85,47), Math.toRadians(0))
+//             .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto(850))
 
                 .build());
 
