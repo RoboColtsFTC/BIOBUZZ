@@ -19,8 +19,8 @@ import java.util.Objects;
 @Config
 public final class PinpointLocalizer implements Localizer {
     public static class Params {
-        public double parYTicks = -3630.7;  // X pod: 182.5 mm right of center × 19.894 ticks/mm (left = +)
-        public double perpXTicks = 756.0;   // Y pod: 38.0 mm forward of center × 19.894 ticks/mm (forward = +)
+        public double parYTicks = -1591.3;//3630.7;  //79.99 x X pod: 182.5 mm right of center × 19.894 ticks/mm (left = +)
+        public double perpXTicks = 264; //756.0;   // 13.27 Y pod: 38.0 mm forward of center × 19.894 ticks/mm (forward = +)
 //        public double parYTicks = -9.1734505f;  // Calulation made by refrencing cad drawing for robot)
 //        public double perpXTicks = 1.91008833f;//  Calculations made by referencing cad drawing for robot
     }

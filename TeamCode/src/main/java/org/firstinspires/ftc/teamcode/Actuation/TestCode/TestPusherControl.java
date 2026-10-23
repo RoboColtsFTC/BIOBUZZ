@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.Testing;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import org.firstinspires.ftc.teamcode.Actuation.PusherControl;
+import org.firstinspires.ftc.teamcode.Actuation.LaunchGate;
 
 /**
  * Simple TeleOp for testing and tuning the pusher servo.
@@ -18,7 +18,7 @@ public class TestPusherControl extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        PusherControl pusher = new PusherControl(hardwareMap);
+        LaunchGate pusher = new LaunchGate(hardwareMap);
 
         telemetry.addLine("Pusher Test Ready");
         telemetry.addLine("A: Push");

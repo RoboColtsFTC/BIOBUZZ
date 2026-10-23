@@ -194,7 +194,7 @@ public class LaunchGamePeace {
                     launchsequence = LaunchSequence.IDLE;
 
                     ActuatorControl.controlstate = ActuatorControl.ControlState.ready;
-                    LoadSpindexer.Currentstate = LoadSpindexer.State.Empty;
+                    Intake.Currentstate = Intake.State.Empty;
                     colorPos = Arrays.asList(ColorDetector.DetColor.UNKNOWN, ColorDetector.DetColor.UNKNOWN, ColorDetector.DetColor.UNKNOWN);
 
                 }
@@ -207,9 +207,9 @@ public class LaunchGamePeace {
 
     public enum LoadGamePeace {
         IDLE,
-        SETPOSITION,
-        ACTUATEKICKER,
-        RETURNKICKERPOSITION
+        ReadyToShoot,
+        Shoot,
+
 
     }
 
@@ -221,29 +221,22 @@ public class LaunchGamePeace {
 
             case IDLE:
                 LoadGamePeaceTimer.reset();
-                loadgamepeace = LoadGamePeace.SETPOSITION;
+                loadgamepeace = LoadGamePeace.ReadyToShoot;
                 break;
 
-            case SETPOSITION:
+            case ReadyToShoot:
                 if (LoadGamePeaceTimer.milliseconds() >= 120) {
                     actuators.spindexercontrol.setPosition(pos);
                     LoadGamePeaceTimer.reset();
-                    loadgamepeace = LoadGamePeace.ACTUATEKICKER;
+                    loadgamepeace = LoadGamePeace.Shoot;
 
                 }
 
 
                 break;
-            case ACTUATEKICKER:
+            case Shoot:
                 if (LoadGamePeaceTimer.milliseconds() >= 120) {
                     actuators.LaunchKicker.SetSecond();
-                    LoadGamePeaceTimer.reset();
-                    loadgamepeace = LoadGamePeace.RETURNKICKERPOSITION;
-                }
-                break;
-            case RETURNKICKERPOSITION:
-                if (LoadGamePeaceTimer.milliseconds() >= 120) {
-                    actuators.LaunchKicker.SetFirst();
                     LoadGamePeaceTimer.reset();
                     loadgamepeace = LoadGamePeace.IDLE;
                 }
@@ -257,7 +250,7 @@ public class LaunchGamePeace {
 
 
 
-    }
+}
 
 
 

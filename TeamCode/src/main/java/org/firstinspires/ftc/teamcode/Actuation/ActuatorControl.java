@@ -11,7 +11,6 @@ import org.firstinspires.ftc.teamcode.Actuation.Actuators.DualMotor;
 import org.firstinspires.ftc.teamcode.Actuation.Actuators.FeedControl;
 import org.firstinspires.ftc.teamcode.Actuation.Actuators.SpindexerControl;
 import org.firstinspires.ftc.teamcode.LightsandIndicators.GoBuildaPWMLight;
-import org.firstinspires.ftc.teamcode.Perception.AprilTagData;
 import org.firstinspires.ftc.teamcode.Perception.ColorDetector;
 
 import java.util.Arrays;
@@ -33,7 +32,7 @@ public class ActuatorControl {
             }
     public Actuators actuators=new Actuators();
 
-    public LoadSpindexer loadSpindexer;
+    public Intake intake;
     public LaunchGamePeace launchgamepeace;
 
     public LinearOpMode opmode;
@@ -66,13 +65,15 @@ public class ActuatorControl {
         ControlState controlstate = ControlState.ready;
         this.opmode=opmode;
         this.hardwaremap= opmode.hardwareMap;
+
+
         actuators.feedcontrol=new FeedControl(hardwaremap, param.FeedControl_Power);
         actuators.FeedKicker= new AngleServo(hardwaremap,"FeedKicker",param.FeedKicker_First,param.FeedKicker_Second,param.FeedKicker_MaxAngle);
         actuators.LaunchKicker=new AngleServo(hardwaremap,"LaunchKicker",param.LaunchKicker_First,param.LaunchKicker_Second,param.LaunchKicker_MaxAngle);
         actuators.IntakeMotor = new ContinuousMotor(hardwaremap,"IntakeMotor",param.IntakeMotor_Power);
         actuators.LauncherMotor= new DualMotor(hardwaremap,"LauncherMotor1","LauncherMotor2",param.Launchmmotor_velocity);
         actuators.spindexercontrol=new SpindexerControl(hardwaremap,"Spindexer");
-        loadSpindexer=new LoadSpindexer(this.opmode,actuators,colorPos);
+        intake=new Intake(this.opmode,actuators,colorPos);
         launchgamepeace=new LaunchGamePeace(this.opmode,actuators,colorPos);
 
         // Tuning
@@ -94,7 +95,7 @@ public class ActuatorControl {
 
 public void run() {
 
-    loadSpindexer.run();
+    intake.run();
     launchgamepeace.run();
 
 

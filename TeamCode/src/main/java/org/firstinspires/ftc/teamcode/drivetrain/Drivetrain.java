@@ -87,22 +87,22 @@ public class Drivetrain {
         headingAngle=drive.localizer.getHeading();//Math.toDegrees(pos.heading.toDouble());
         headingAngleRotated= Rotation2d.fromDegrees(headingAngle+180);
 
-        if(TagData.red) {
-            AprilTagBearing = TagData.Red.Bearing;
-        }else{
-            AprilTagBearing = TagData.Blue.Bearing;
-        }
-
-        if(TagData.detectionState.isBlueGoalAprilTagDetected && !TagData.red) {
-            ActuatorControl.LockIndicator1.SetColor(.5);
-            ActuatorControl.LockIndicator2.SetColor(.5);
-        }else if (TagData.detectionState.isRedGoalAprilTagDetected && TagData.red){
-            ActuatorControl.LockIndicator1.SetColor(.5);
-            ActuatorControl.LockIndicator2.SetColor(.5);
-        }else{
-            ActuatorControl.LockIndicator1.SetColor(0);
-            ActuatorControl.LockIndicator2.SetColor(0);
-        }
+//        if(TagData.red) {
+//            AprilTagBearing = TagData.Red.Bearing;
+//        }else{
+//            AprilTagBearing = TagData.Blue.Bearing;
+//        }
+//
+//        if(TagData.detectionState.isBlueGoalAprilTagDetected && !TagData.red) {
+//            ActuatorControl.LockIndicator1.SetColor(.5);
+//            ActuatorControl.LockIndicator2.SetColor(.5);
+//        }else if (TagData.detectionState.isRedGoalAprilTagDetected && TagData.red){
+//            ActuatorControl.LockIndicator1.SetColor(.5);
+//            ActuatorControl.LockIndicator2.SetColor(.5);
+//        }else{
+//            ActuatorControl.LockIndicator1.SetColor(0);
+//            ActuatorControl.LockIndicator2.SetColor(0);
+//        }
 
 //        if(TagData.detectionState.isAnyTagDetected){
 //            ActuatorControl.LockIndicator.SetColor(.5);
