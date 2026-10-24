@@ -12,7 +12,7 @@ public class TestContinuousServo  extends LinearOpMode {
     public ContinuousServo servo;
     @Override
     public void runOpMode() throws InterruptedException {
-        servo= new ContinuousServo(hardwareMap,"Test",20);
+        servo= new ContinuousServo(hardwareMap,"Feed 1",20);
 
 
         waitForStart();

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.Actuation;
 
+import static android.telephony.PhoneNumberUtils.WAIT;
+
 import androidx.annotation.NonNull;
 
 import org.firstinspires.ftc.teamcode.Actuation.ActuatorControl.Actuators;
@@ -12,16 +14,12 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 
-
-
 import org.firstinspires.ftc.teamcode.Perception.ColorDetector;
-
-
-
 
 
 import java.util.Arrays;
 import java.util.List;
+
 @Config
 public class LaunchGamePeace {
 
@@ -29,33 +27,37 @@ public class LaunchGamePeace {
     public LinearOpMode opmode;
 
 
-    List<ColorDetector.DetColor> colorPos;
+    private final ElapsedTime LauncherRuntime = new ElapsedTime();
+    private final ElapsedTime StopSEQDelay = new ElapsedTime();
+    private final ElapsedTime StartSEQDelay = new ElapsedTime();
 
-    private final ElapsedTime LauncherMotorTimer = new ElapsedTime();
-    private final ElapsedTime LoadGamePeaceTimer = new ElapsedTime();
+    private double LauncherRuntime_ms = 10000;
+    private double StopSEQDelay_ms = 1000;
+    private double StartSEQDelay_ms = 1000;
 
-    public LaunchGamePeace(LinearOpMode opmode, Actuators actuators, List<ColorDetector.DetColor> colorPos) {
-        this.colorPos = colorPos;
+    public LaunchGamePeace(LinearOpMode opmode, Actuators actuators) {
+
         this.opmode = opmode;
         this.actuators = actuators;
 
-        LauncherMotorTimer.reset();
 
     }
 
-    public enum LauncherState {
-        IDLE,
-        MOTORSTARTUP,
-        ACTIVELAUNCH,
-
-
-    }
-
-    public LauncherState launcherstate = LauncherState.IDLE;
-    public List<Integer> LaunchOrder = Arrays.asList(6, 5, 4);  // Defalt sequnce
     public boolean autoLaunch = false;
 
     public double autoVelocity = 0;
+
+    public enum State {
+        START,
+        STOP,
+        WAIT,
+        SEQCOMPLETE
+    }
+
+    public State state = State.SEQCOMPLETE;
+
+    private State StartState = State.SEQCOMPLETE;
+    private State StopState = State.SEQCOMPLETE;
 
     public Action Launch_Auto(double velocity) {
         return new Action() {
@@ -63,8 +65,7 @@ public class LaunchGamePeace {
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
                 autoVelocity = velocity;
                 autoLaunch = true;
-                LoadSpindexer_run();
-
+                LaunchGamePeace_run();
                 return autoLaunch;
             }
 
@@ -73,181 +74,103 @@ public class LaunchGamePeace {
     }
 
     public void run() {
-        LoadSpindexer_run();
-    }
 
-    public void LoadSpindexer_run() {
+        if (opmode.gamepad2.right_trigger_pressed) {
+            state = State.START;
+            StartState = State.START;
 
-
-        switch (launcherstate) {
-
-            case IDLE:
-
-
-                if (opmode.gamepad2.x && ActuatorControl.controlstate == ActuatorControl.ControlState.ready) {
-
-                    ActuatorControl.controlstate = ActuatorControl.ControlState.launching;
-                    actuators.LauncherMotor.SetVelocity(1650); //120.7 12.53v
-
-                    LauncherMotorTimer.reset();
-
-
-                    LaunchOrder = Arrays.asList(6, 5, 4);
-
-                    launcherstate = LauncherState.MOTORSTARTUP;
-
-
-                } else if (autoLaunch) {
-                    ActuatorControl.controlstate = ActuatorControl.ControlState.launching;
-                    actuators.LauncherMotor.SetVelocity(autoVelocity); //120.7 12.53v.63
-
-                    LauncherMotorTimer.reset();
-                    LaunchOrder = Arrays.asList(6, 5, 4);
-                    launcherstate = LauncherState.MOTORSTARTUP;
-
-
-                }
-                // Close Launching
-
-
-                if (opmode.gamepad2.y && ActuatorControl.controlstate == ActuatorControl.ControlState.ready) {
-
-                    ActuatorControl.controlstate = ActuatorControl.ControlState.launching;
-                    actuators.LauncherMotor.SetVelocity(1400); //60.4 inch 12.59v works at 45.9
-
-                    LauncherMotorTimer.reset();
-
-                    LaunchOrder = Arrays.asList(6, 5, 4);
-
-                    launcherstate = LauncherState.MOTORSTARTUP;
-
-                }
-
-
-                break;
-            case MOTORSTARTUP:
-                if (actuators.LauncherMotor.isMotorAtVelocity()) {
-
-                    launcherstate = LauncherState.ACTIVELAUNCH;
-                }
-                break;
-            case ACTIVELAUNCH:
-
-                launchall();
-                if (launchsequence == LaunchSequence.IDLE) {
-                    launcherstate = LauncherState.IDLE;
-                    autoLaunch = false;
-
-                }
-
-                break;
+            LauncherRuntime.reset();
 
         }
 
-
+        if (opmode.gamepad2.left_trigger_pressed ) {
+            state = State.STOP;
+            StopState= State.START;
+        }
+        LaunchGamePeace_run();
+        opmode.telemetry.addLine(String.format("state = %s, Start State= %s, StopState= %s",state,StartState,StopState));
+        opmode.telemetry.addLine(String.format("LauncherRuntime = %.0f, StartSEQDelay = %.0f, StopSEQDelay = %.0f",
+                LauncherRuntime.milliseconds(),
+                StartSEQDelay.milliseconds(),
+                StopSEQDelay.milliseconds()
+        ));
     }
 
+    public void LaunchGamePeace_run() {
+        // State Machine for Launcher
+        switch (state) {
+            case START:
 
-    public enum LaunchSequence {
-        IDLE,
-        LAUNCHPOSITION1,
-        LAUNCHPOSITION2,
-        LAUNCHPOSITION3
+                LaunchGamePeace_Start();
 
-    }
-
-    public LaunchSequence launchsequence = LaunchSequence.IDLE;
-
-    public void launchall() {
-
-        switch (launchsequence) {
-            case IDLE:
-                if (actuators.LauncherMotor.isMotorAtVelocity()) {
-                    launchsequence = LaunchSequence.LAUNCHPOSITION1;
-                }
-
+                if (StartState==State.SEQCOMPLETE) {
+                state = State.WAIT;
+            }
                 break;
-            case LAUNCHPOSITION1:
-
-
-                launch(LaunchOrder.get(0));
-
-                if (loadgamepeace == LoadGamePeace.IDLE) {
-                    launchsequence = LaunchSequence.LAUNCHPOSITION2;
+            case WAIT:
+                if (LauncherRuntime.milliseconds() > LauncherRuntime_ms) {
+                    state = State.STOP;
+                    StopState= State.START;
                 }
                 break;
-            case LAUNCHPOSITION2:
+            case STOP:
 
-
-                launch(LaunchOrder.get(1));
-
-                if (loadgamepeace == LoadGamePeace.IDLE) {
-                    launchsequence = LaunchSequence.LAUNCHPOSITION3;
-                }
-                break;
-            case LAUNCHPOSITION3:
-
-
-                launch(LaunchOrder.get(2));
-
-                if (loadgamepeace == LoadGamePeace.IDLE) {
-                    launchsequence = LaunchSequence.IDLE;
-
-                    ActuatorControl.controlstate = ActuatorControl.ControlState.ready;
-                    Intake.Currentstate = Intake.State.Empty;
-                    colorPos = Arrays.asList(ColorDetector.DetColor.UNKNOWN, ColorDetector.DetColor.UNKNOWN, ColorDetector.DetColor.UNKNOWN);
-
-                }
+                LaunchGamePeace_stop();
 
                 break;
-
+            default:
+                state = State.SEQCOMPLETE;
+                break;
         }
 
     }
 
-    public enum LoadGamePeace {
-        IDLE,
-        ReadyToShoot,
-        Shoot,
-
-
-    }
-
-    LoadGamePeace loadgamepeace = LoadGamePeace.IDLE;
-
-    public void launch(int pos) {
-
-        switch (loadgamepeace) {
-
-            case IDLE:
-                LoadGamePeaceTimer.reset();
-                loadgamepeace = LoadGamePeace.ReadyToShoot;
-                break;
-
-            case ReadyToShoot:
-                if (LoadGamePeaceTimer.milliseconds() >= 120) {
-                    actuators.spindexercontrol.setPosition(pos);
-                    LoadGamePeaceTimer.reset();
-                    loadgamepeace = LoadGamePeace.Shoot;
-
-                }
-
+    public void LaunchGamePeace_Start() {
+        switch (StartState) {
+            case START:
+                actuators.LaunchGate.SetSecond();
+                StartState = State.WAIT;
+                StartSEQDelay.reset();
 
                 break;
-            case Shoot:
-                if (LoadGamePeaceTimer.milliseconds() >= 120) {
-                    actuators.LaunchKicker.SetSecond();
-                    LoadGamePeaceTimer.reset();
-                    loadgamepeace = LoadGamePeace.IDLE;
+            case WAIT:
+                // Allowing for time for servo to actuate.
+
+                if (StartSEQDelay.milliseconds() > StartSEQDelay_ms) {
+                    actuators.GamePeaceFeed_One.Start();
+                    actuators.GamePeaceFeed_Two.Start();
+                    StartState = State.SEQCOMPLETE;
                 }
                 break;
-
-
+            default:
+                StartState = State.SEQCOMPLETE;
+                break;
         }
-
     }
 
+    public void LaunchGamePeace_stop() {
+        switch (StopState) {
 
+            case START:
+                actuators.GamePeaceFeed_One.Stop();
+                actuators.GamePeaceFeed_Two.Stop();
+                StopSEQDelay.reset();
+                StopState = State.WAIT;
+
+                break;
+            case WAIT:
+                // Allowing time for servo to stop turning before lifting the gate.
+                if (StopSEQDelay.milliseconds() > StopSEQDelay_ms) {
+                    actuators.LaunchGate.SetFirst();
+                    StopState = State.SEQCOMPLETE;
+                    state = State.SEQCOMPLETE;
+                }
+                break;
+            default:
+                StopState = State.SEQCOMPLETE;
+                break;
+        }
+    }
 
 
 }

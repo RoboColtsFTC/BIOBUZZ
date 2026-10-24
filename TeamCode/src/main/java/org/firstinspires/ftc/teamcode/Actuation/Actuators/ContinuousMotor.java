@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.Actuation.Actuators;
 
-
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -13,7 +12,13 @@ public class ContinuousMotor {
     private DcMotorEx motor;
     private boolean isrunning = false;
 
+    public enum Direction {
+        FORWARD,
+        REVERSE,
+        OTHER
+    }
 
+     private Direction direction;
     public ContinuousMotor(HardwareMap hardwareMap, String MotorName, double power) {
 
         motor = hardwareMap.get(DcMotorEx.class, MotorName);
@@ -58,14 +63,57 @@ public class ContinuousMotor {
         } else {
             this.Power = norm(power);
         }
-
     }
+    public Direction GetDirection(){
+
+        if (motor.getDirection() == DcMotorEx.Direction.FORWARD) {
+               return Direction.FORWARD;
+        } else if (motor.getDirection() == DcMotorEx.Direction.REVERSE) {
+               return Direction.REVERSE;
+        }else{
+            return Direction.OTHER;
+        }
+    }
+
+
 
     public void SetForward(){
            motor.setDirection(DcMotorSimple.Direction.FORWARD);
 }
     public void SetReverse(){
         motor.setDirection(DcMotorSimple.Direction.REVERSE);
+    }
+
+    public void runForward(){
+        if (GetDirection()==Direction.FORWARD){
+            this.StartMotor();
+        } else{
+            if (isrunning){
+                this.StopMotor();
+                motor.setDirection(DcMotorSimple.Direction.FORWARD);
+                this.StartMotor();
+            }else{
+                motor.setDirection(DcMotorSimple.Direction.FORWARD);
+                this.StartMotor();
+            }
+
+        }
+    }
+
+    public void runReverse(){
+        if (GetDirection()==Direction.REVERSE){
+            this.StartMotor();
+        } else{
+            if (isrunning){
+                this.StopMotor();
+                motor.setDirection(DcMotorSimple.Direction.REVERSE);
+                this.StartMotor();
+            }else{
+                motor.setDirection(DcMotorSimple.Direction.REVERSE);
+                this.StartMotor();
+            }
+
+        }
     }
 
     public double norm(double value) {

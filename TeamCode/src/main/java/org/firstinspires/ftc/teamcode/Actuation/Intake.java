@@ -28,28 +28,25 @@ public enum State {
 
 
 
-public ColorDetector colordetector;
+
 
 public Actuators actuators;
-
-public  List<DetColor> colorPos;
-
-public static State Currentstate=State.Empty;
 
 
 
 public LinearOpMode opmode;
-private final ElapsedTime ControlFeedTimer = new ElapsedTime();
-private final ElapsedTime KickerTimer = new ElapsedTime();
+
 private static boolean auto;
-    public Intake(LinearOpMode opmode, Actuators actuators, List<DetColor> colorPos){ // Cunstructor
-       colordetector=new ColorDetector(opmode);
-        this.colorPos =colorPos;
-        Currentstate=State.Empty;
+
+private boolean Forward_Debounce = false;
+private boolean Reverse_Debounce= false;
+private boolean Stop_Debounce = false;
+
+    public Intake(LinearOpMode opmode, Actuators actuators){ // Cunstructor
+
         this.opmode=opmode;
         this.actuators=actuators;
-        ControlFeedTimer.reset();
-        KickerTimer.reset();
+
 
     }
 
@@ -61,7 +58,7 @@ private static boolean auto;
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
                 //autoload=true;
                 auto=true;
-                Intake_run();
+                Intake_run_Forward();
 
 
                 return auto;
@@ -74,22 +71,43 @@ private static boolean auto;
 
     public void run()
     {
-        Intake_run();
-        opmode.telemetry.addData("ColorPosition",colorPos);
 
+
+        if (opmode.gamepad1.left_bumper& !Forward_Debounce) {
+
+            Intake_run_Forward();
+        }
+        Forward_Debounce=opmode.gamepad1.left_bumper;
+
+
+        if (opmode.gamepad1.left_trigger_pressed & ! Reverse_Debounce) {
+
+            Intake_run_Reverse();
+        }
+        Reverse_Debounce=opmode.gamepad1.left_trigger_pressed;
+
+
+        if ((opmode.gamepad1.right_bumper & !Stop_Debounce)||actuators.BeamBrake.getState()) {
+
+            Intake_run_Stop();
+        }
+        Stop_Debounce=opmode.gamepad1.right_bumper;
     }
 
-    public void Intake_run(){
-        // TODO
-        // Intake code goes here to set the motors.
-        // We talked about having it activated to go foraward and reverse with two motors.
-        // Left bumper top and bottom on drivers gampad.
-        // please initialize two motors in Actuatorcontrol for this function.
+    public void Intake_run_Forward(){
 
-
+        actuators.IntakeMotor_One.runForward();
+        actuators.IntakeMotor_Two.runForward();
 
     }
+    public void Intake_run_Reverse() {
+        actuators.IntakeMotor_One.runReverse();
+        actuators.IntakeMotor_Two.runReverse();
+    }
 
-
+    public void Intake_run_Stop() {
+        actuators.IntakeMotor_One.StopMotor();
+        actuators.IntakeMotor_Two.StopMotor();
+    }
 
 }
