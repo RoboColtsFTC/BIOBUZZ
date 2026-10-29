@@ -30,7 +30,7 @@ public class ActuatorControl {
 
         public ContinuousMotor LaunchMotor_One;
         public ContinuousMotor LaunchMotor_Two;
-
+        public ContinuousMotor FeedMotor;
         public ContinuousServo GamePeaceFeed_One;
         public ContinuousServo GamePeaceFeed_Two;
         public AngleServo LaunchGate;
@@ -74,14 +74,12 @@ public class ActuatorControl {
         this.opmode = opmode;
         this.hardwaremap = opmode.hardwareMap;
 
-        actuators.IntakeMotor_One = new ContinuousMotor(hardwaremap, "IntakeMotor 1", param.IntakeMotor_Power);
-        actuators.IntakeMotor_Two = new ContinuousMotor(hardwaremap, "IntakeMotor 2", param.IntakeMotor_Power);
+        actuators.IntakeMotor_One = new ContinuousMotor(hardwaremap, "IntakeMotor", param.IntakeMotor_Power);
+        actuators.FeedMotor = new ContinuousMotor(hardwaremap, "FeedMotor", param.Feed_Power );
 
 //        actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
 //        actuators.LaunchMotor_Two = new ContinuousMotor(hardwaremap, "LaunchMotor 2", param.Launchmmotor_Two_Power);
 
-        actuators.GamePeaceFeed_One = new ContinuousServo(hardwaremap, "Feed 1", param.Feed_Power);
-        actuators.GamePeaceFeed_Two = new ContinuousServo(hardwaremap, "Feed 2", param.Feed_Power);
        actuators.LaunchGate = new AngleServo(hardwaremap, "Gate", param.LaunchGate_First, param.LaunchGate_Second, param.LaunchGate_MaxAngle);
        actuators.BeamBrake = hardwaremap.get(DigitalChannel.class, "BeamBreak");
        actuators.BeamBrake.setMode(DigitalChannel.Mode.INPUT);

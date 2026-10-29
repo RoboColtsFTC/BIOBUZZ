@@ -87,7 +87,7 @@ private boolean Stop_Debounce = false;
         Reverse_Debounce=opmode.gamepad1.left_trigger_pressed;
 
 
-        if ((opmode.gamepad1.right_bumper & !Stop_Debounce)||actuators.BeamBrake.getState()) {
+        if ((opmode.gamepad1.right_bumper & !Stop_Debounce)) {//||actuators.BeamBrake.getState()
 
             Intake_run_Stop();
         }
@@ -98,6 +98,7 @@ private boolean Stop_Debounce = false;
 
         actuators.IntakeMotor_One.runForward();
         actuators.IntakeMotor_Two.runForward();
+        actuators.FeedMotor.runForward();;
 
     }
     public void Intake_run_Reverse() {

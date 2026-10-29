@@ -11,6 +11,10 @@ public class ContinuousMotor {
     private double Power = 0;
     private DcMotorEx motor;
     private boolean isrunning = false;
+    private boolean isVelocityMode=false;
+    private double RampUpValue =0;
+    private double RampUpStepSize=10;
+    private double RampDownStepSize=10;
 
     public enum Direction {
         FORWARD,
@@ -23,7 +27,10 @@ public class ContinuousMotor {
 
         motor = hardwareMap.get(DcMotorEx.class, MotorName);
         motor.setDirection(DcMotorSimple.Direction.FORWARD);
+        motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         this.Power = norm(power);
+        this.isVelocityMode=false;
+
     }
     // overloading constructor for velocity input as an option.
     public ContinuousMotor(HardwareMap hardwareMap, String MotorName ,double velocity, String inputmode) {
@@ -31,7 +38,10 @@ public class ContinuousMotor {
         if(Objects.equals(inputmode, "velocity")) {
             motor = hardwareMap.get(DcMotorEx.class, MotorName);
             motor.setDirection(DcMotorSimple.Direction.FORWARD);
-            this.velocity = norm(velocity);
+            motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+            this.velocity = velocity;
+            this.isVelocityMode=true;
+
         }
     }
     public boolean isMotorAtVelocity(){
@@ -46,12 +56,21 @@ public class ContinuousMotor {
        return motor.getVelocity();
     }
     public void StartMotor() {
-        motor.setPower(Power);
+        if(isVelocityMode){
+
+            motor.setVelocity(velocity);
+        }else {
+            motor.setPower(Power);
+        }
         isrunning = true;
     }
 
     public void StopMotor() {
-        motor.setPower(0);
+        if(isVelocityMode){
+            motor.setVelocity(0);
+        }else {
+            motor.setPower(0);
+        }
         isrunning = false;
     }
 
@@ -84,7 +103,7 @@ public class ContinuousMotor {
         motor.setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
-    public void runForward(){
+    public boolean runForward(){
         if (GetDirection()==Direction.FORWARD){
             this.StartMotor();
         } else{
@@ -95,17 +114,20 @@ public class ContinuousMotor {
             }else{
                 motor.setDirection(DcMotorSimple.Direction.FORWARD);
                 this.StartMotor();
-            }
+
 
         }
+
+        }
+        return true;
     }
 
-    public void runReverse(){
+    public boolean runReverse(){
         if (GetDirection()==Direction.REVERSE){
             this.StartMotor();
         } else{
             if (isrunning){
-                this.StopMotor();
+                 this.StopMotor();
                 motor.setDirection(DcMotorSimple.Direction.REVERSE);
                 this.StartMotor();
             }else{
@@ -114,6 +136,7 @@ public class ContinuousMotor {
             }
 
         }
+        return true;
     }
 
     public double norm(double value) {
@@ -127,6 +150,8 @@ public class ContinuousMotor {
 
 
     }
+
+
 
 
 }

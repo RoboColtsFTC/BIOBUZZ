@@ -32,8 +32,8 @@ public class LaunchGamePeace {
     private final ElapsedTime StartSEQDelay = new ElapsedTime();
 
     private double LauncherRuntime_ms = 10000;
-    private double StopSEQDelay_ms = 1000;
-    private double StartSEQDelay_ms = 1000;
+    private double StopSEQDelay_ms = 0;
+    private double StartSEQDelay_ms = 0;
 
     public LaunchGamePeace(LinearOpMode opmode, Actuators actuators) {
 
@@ -59,12 +59,15 @@ public class LaunchGamePeace {
     private State StartState = State.SEQCOMPLETE;
     private State StopState = State.SEQCOMPLETE;
 
-    public Action Launch_Auto(double velocity) {
+    public Action Launch_Auto() {
         return new Action() {
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
-                autoVelocity = velocity;
+
                 autoLaunch = true;
+                state = State.START;
+                StartState = State.START;
+                LauncherRuntime.reset();
                 LaunchGamePeace_run();
                 return autoLaunch;
             }
@@ -120,6 +123,7 @@ public class LaunchGamePeace {
                 break;
             default:
                 state = State.SEQCOMPLETE;
+                autoLaunch = false;
                 break;
         }
 
@@ -128,8 +132,8 @@ public class LaunchGamePeace {
     public void LaunchGamePeace_Start() {
         switch (StartState) {
             case START:
-                actuators.LaunchGate.SetSecond();
-                StartState = State.WAIT;
+//                actuators.LaunchGate.SetSecond();
+               StartState = State.WAIT;
                 StartSEQDelay.reset();
 
                 break;
@@ -137,8 +141,8 @@ public class LaunchGamePeace {
                 // Allowing for time for servo to actuate.
 
                 if (StartSEQDelay.milliseconds() > StartSEQDelay_ms) {
-                    actuators.GamePeaceFeed_One.Start();
-                    actuators.GamePeaceFeed_Two.Start();
+                    actuators.FeedMotor.runReverse();
+
                     StartState = State.SEQCOMPLETE;
                 }
                 break;
@@ -152,8 +156,7 @@ public class LaunchGamePeace {
         switch (StopState) {
 
             case START:
-                actuators.GamePeaceFeed_One.Stop();
-                actuators.GamePeaceFeed_Two.Stop();
+                actuators.FeedMotor.StopMotor();
                 StopSEQDelay.reset();
                 StopState = State.WAIT;
 
@@ -161,7 +164,7 @@ public class LaunchGamePeace {
             case WAIT:
                 // Allowing time for servo to stop turning before lifting the gate.
                 if (StopSEQDelay.milliseconds() > StopSEQDelay_ms) {
-                    actuators.LaunchGate.SetFirst();
+
                     StopState = State.SEQCOMPLETE;
                     state = State.SEQCOMPLETE;
                 }
