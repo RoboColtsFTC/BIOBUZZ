@@ -202,6 +202,19 @@ public class AprilTag {
             }
         }
 
+        if (!detectionState.isRedGoalAprilTagDetected){
+            Data.SetRed(Data.Red.Range, 0);
+        }
+        if(!detectionState.isBlueGoalAprilTagDetected) {
+            Data.SetBlue(Data.Blue.Range, 0);
+        }
+        // Show exactly what the drivetrain will steer by.
+        opMode.telemetry.addData("Aim RED", "%s bearing %3.1f deg",
+                detectionState.isRedGoalAprilTagDetected ? "SEEN" : "NONE", Data.Red.Bearing);
+        opMode.telemetry.addData("Aim BLUE", "%s bearing %3.1f deg",
+                detectionState.isBlueGoalAprilTagDetected ? "SEEN" : "NONE", Data.Blue.Bearing);
+
+
         Data.detectionState= detectionState;
 
 //        // Add "key" information to telemetry

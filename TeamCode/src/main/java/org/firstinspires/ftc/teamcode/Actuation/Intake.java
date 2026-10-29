@@ -101,12 +101,14 @@ private boolean Stop_Debounce = false;
 
     }
     public void Intake_run_Reverse() {
+        actuators.FeedMotor.StopMotor();
         actuators.IntakeMotor_One.runReverse();
     }
 
     public void Intake_run_Stop() {
         actuators.IntakeMotor_One.StopMotor();
-        actuators.IntakeMotor_Two.StopMotor();
+        // may want to add timer to delay feed motor.
+        actuators.FeedMotor.StopMotor();
     }
 
 }

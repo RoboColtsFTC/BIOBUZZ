@@ -126,9 +126,32 @@ public class ContinuousMotor {
         if (GetDirection()==Direction.REVERSE){
             this.StartMotor();
         } else{
+            // add ramp and ramp down
+
+            //Review and work on next time
+
             if (isrunning){
-                 this.StopMotor();
+
+
+                RampUpValue-=RampDownStepSize;
+                if (RampUpValue<=0){
+                    RampUpValue=0;
+                }
+
+                SetPower(RampUpValue);
+
                 motor.setDirection(DcMotorSimple.Direction.REVERSE);
+
+                RampUpValue+=RampUpStepSize;
+                if (RampUpValue>=1){
+                    RampUpValue=1;
+
+                }
+                SetPower(RampUpValue);
+
+                 //this.StopMotor();
+
+
                 this.StartMotor();
             }else{
                 motor.setDirection(DcMotorSimple.Direction.REVERSE);
