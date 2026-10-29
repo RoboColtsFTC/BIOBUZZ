@@ -80,7 +80,7 @@ public class ActuatorControl {
 //        actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
 //        actuators.LaunchMotor_Two = new ContinuousMotor(hardwaremap, "LaunchMotor 2", param.Launchmmotor_Two_Power);
 
-       actuators.LaunchGate = new AngleServo(hardwaremap, "Gate", param.LaunchGate_First, param.LaunchGate_Second, param.LaunchGate_MaxAngle);
+
        actuators.BeamBrake = hardwaremap.get(DigitalChannel.class, "BeamBreak");
        actuators.BeamBrake.setMode(DigitalChannel.Mode.INPUT);
 

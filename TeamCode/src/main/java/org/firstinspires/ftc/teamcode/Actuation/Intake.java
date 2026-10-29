@@ -97,13 +97,11 @@ private boolean Stop_Debounce = false;
     public void Intake_run_Forward(){
 
         actuators.IntakeMotor_One.runForward();
-        actuators.IntakeMotor_Two.runForward();
-        actuators.FeedMotor.runForward();;
+        actuators.FeedMotor.runForward();
 
     }
     public void Intake_run_Reverse() {
         actuators.IntakeMotor_One.runReverse();
-        actuators.IntakeMotor_Two.runReverse();
     }
 
     public void Intake_run_Stop() {
