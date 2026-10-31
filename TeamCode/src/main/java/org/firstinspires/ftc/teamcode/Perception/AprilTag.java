@@ -100,7 +100,7 @@ public class AprilTag {
 //                //        Skew: 0
 //                //          Mean Square Reprojection Error: 0.413669 pixels
 //
-//                .setLensIntrinsics(502.204, 502.204, 672.7611, 428.515)
+    //           .setLensIntrinsics(502.204, 502.204, 672.7611, 428.515)
                 .build();
 
         // Adjust Image Decimation to trade-off detection-range for detection-rate.
@@ -123,13 +123,13 @@ public class AprilTag {
         // Set and enable the processor.
         visionPortal = new VisionPortal.Builder()
                 .setCamera(opMode.hardwareMap.get(WebcamName.class, "Webcam 1")) // Get camera from hardware map
-//                .setCameraResolution(new Size(1280, 800))
+            //    .setCameraResolution(new Size(1280, 800))
                 //.setCameraResolution(new Size(800, 600))
                 .setCameraResolution(new Size(640, 480)) // Setting resolution
                 .setStreamFormat(VisionPortal.StreamFormat.MJPEG) // Set stream format to MJPEG for higher FPS
 
-                .enableLiveView(true) // Enable live view on Robot Controller screen
-                .setAutoStopLiveView(true) // Automatically stop live view when OpMode is stopped
+                //.enableLiveView(true) // Enable live view on Robot Controller screen
+                //.setAutoStopLiveView(true) // Automatically stop live view when OpMode is stopped
                 .addProcessor(aprilTag)    // Set and enable the processor.
                 .build(); // Build the VisionPortal
 

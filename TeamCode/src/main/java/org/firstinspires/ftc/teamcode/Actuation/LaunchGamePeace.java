@@ -104,7 +104,7 @@ public class LaunchGamePeace {
         switch (state) {
             case START:
 
-                LaunchGamePeace_Start();
+                //LaunchGamePeace_Start();
 
                 if (StartState==State.SEQCOMPLETE) {
                 state = State.WAIT;
@@ -118,7 +118,7 @@ public class LaunchGamePeace {
                 break;
             case STOP:
 
-                LaunchGamePeace_stop();
+               // LaunchGamePeace_stop();
 
                 break;
             default:
@@ -141,7 +141,7 @@ public class LaunchGamePeace {
                 // Allowing for time for servo to actuate.
 
                 if (StartSEQDelay.milliseconds() > StartSEQDelay_ms) {
-                    actuators.FeedMotor.runReverse();
+                    //actuators.FeedMotor.runReverse();
 
                     StartState = State.SEQCOMPLETE;
                 }
