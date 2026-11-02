@@ -104,7 +104,7 @@ public class LaunchGamePeace {
         switch (state) {
             case START:
 
-                //LaunchGamePeace_Start();
+                LaunchGamePeace_Start();
 
                 if (StartState==State.SEQCOMPLETE) {
                 state = State.WAIT;
@@ -118,7 +118,7 @@ public class LaunchGamePeace {
                 break;
             case STOP:
 
-               // LaunchGamePeace_stop();
+                LaunchGamePeace_stop();
 
                 break;
             default:
@@ -140,7 +140,10 @@ public class LaunchGamePeace {
             case WAIT:
                 // Allowing for time for servo to actuate.
 
-                if (StartSEQDelay.milliseconds() > StartSEQDelay_ms) {
+// Change to run forward and then once completed, go to sequence complete
+
+                if (!actuators.FeedMotor.runReverse()){
+                // if (StartSEQDelay.milliseconds() > StartSEQDelay_ms) {
                     //actuators.FeedMotor.runReverse();
 
                     StartState = State.SEQCOMPLETE;
@@ -163,7 +166,7 @@ public class LaunchGamePeace {
                 break;
             case WAIT:
                 // Allowing time for servo to stop turning before lifting the gate.
-                if (StopSEQDelay.milliseconds() > StopSEQDelay_ms) {
+                if (!actuators.FeedMotor.StopMotor()) {
 
                     StopState = State.SEQCOMPLETE;
                     state = State.SEQCOMPLETE;
