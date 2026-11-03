@@ -26,7 +26,8 @@ public final class BlueAutoNear extends LinearOpMode {
         Actions.runBlocking(drive.actionBuilder(beginPose)            //  .strafeToLinearHeading(new Vector2d(0,-10), Math.toRadians(-90))
                 //   .turn(Math.toRadians(45))
                 .strafeToLinearHeading(new Vector2d(15,0), Math.toRadians(0)) // move from start into shooting position
-  //              .waitSeconds(1) // **** Add shooting here ****
+                                .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto())
+                //              .waitSeconds(1) // **** Add shooting here ****
 //                .strafeToLinearHeading(new Vector2d(15,24), Math.toRadians(0))
   //              .strafeToLinearHeading(new Vector2d(85,47), Math.toRadians(0))
 ////                .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto(850))

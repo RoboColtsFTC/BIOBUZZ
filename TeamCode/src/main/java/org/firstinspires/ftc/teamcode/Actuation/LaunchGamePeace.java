@@ -64,12 +64,11 @@ public class LaunchGamePeace {
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
 
-                autoLaunch = true;
                 state = State.START;
                 StartState = State.START;
+
                 LauncherRuntime.reset();
-                LaunchGamePeace_run();
-                return autoLaunch;
+                return LaunchGamePeace_run();
             }
 
 
@@ -99,7 +98,7 @@ public class LaunchGamePeace {
         ));
     }
 
-    public void LaunchGamePeace_run() {
+    public boolean LaunchGamePeace_run() {
         // State Machine for Launcher
         switch (state) {
             case START:
@@ -109,22 +108,27 @@ public class LaunchGamePeace {
                 if (StartState==State.SEQCOMPLETE) {
                 state = State.WAIT;
             }
-                break;
+                return true;
             case WAIT:
                 if (LauncherRuntime.milliseconds() > LauncherRuntime_ms) {
                     state = State.STOP;
                     StopState= State.START;
                 }
-                break;
+                return true;
             case STOP:
 
                 LaunchGamePeace_stop();
 
-                break;
+                return true;
+            case SEQCOMPLETE:
+
+
+
+                return false;
             default:
                 state = State.SEQCOMPLETE;
                 autoLaunch = false;
-                break;
+               return false;
         }
 
     }
