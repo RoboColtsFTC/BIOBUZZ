@@ -9,6 +9,8 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
@@ -21,6 +23,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Config
 public class AprilTag {
@@ -32,6 +35,44 @@ public class AprilTag {
             0, 0, 0, 0);
     private AprilTagData Data;
     private VisionPortal visionPortal;
+
+    // ---------------- Camera exposure settings ----------------
+    // Why: with auto exposure the camera picks a long exposure indoors, so the
+    // picture blurs when the robot turns and AprilTags stop being detected.
+    // A short manual exposure keeps the tags sharp; gain brightens the picture back up.
+    //
+    // MANUAL_EXPOSURE: true = use EXPOSURE_MS and GAIN below.
+    //                  false = camera's own auto exposure (for comparison).
+    //
+    // EXPOSURE_MS: how long each picture is exposed, in milliseconds.
+    //   Lower  = sharper while moving, but darker.
+    //   Higher = brighter, but blurs when the robot turns.
+    //   Values outside what the camera supports are clamped to its min/max.
+    //
+    // GAIN: brightness boost (like ISO on a phone camera).
+    //   Higher = brighter, but a grainier picture.
+    //   Lower  = cleaner picture, but darker.
+    //   Raise GAIN to make up for a low EXPOSURE_MS. Clamped to the camera's range.
+    //
+    // How to tune (FTC Dashboard, Configuration > AprilTag):
+    //   1. Run a TeleOp and press PLAY (settings are applied after start).
+    //   2. Hold the robot still with a CELL in view.
+    //   3. Lower EXPOSURE_MS until detection starts to drop out,
+    //      then raise GAIN until it is reliable again.
+    //   4. Turn the robot and check "Aim RED/BLUE" stays SEEN.
+    //   5. Pick an EXPOSURE_MS 1 to 2 ms above where it failed (venues are
+    //      brighter than our room, but leave margin).
+    //   6. Dashboard changes are lost on restart: type the final
+    //      numbers in below and commit them.
+    public static boolean MANUAL_EXPOSURE = true;
+    public static int EXPOSURE_MS = 6;
+    public static int GAIN = 250;
+
+    // What was last sent to the camera, so we only send changes.
+    private boolean appliedManual = false;
+    private int appliedExposureMs = -1;
+    private int appliedGain = -1;
+    private boolean autoRestored = false;
 
     public static class DetectionState {
         public boolean isRedGoalAprilTagDetected = false;
@@ -55,6 +96,11 @@ public class AprilTag {
     }
 
     public void run() {
+            if (MANUAL_EXPOSURE) {
+                UpdateCameraExposure();
+            } else {
+                RestoreAutoExposure();
+            }
             ProcessAprilTags();
             // Push telemetry to the Driver Station.
              //opMode.telemetry.update();
@@ -151,6 +197,57 @@ public class AprilTag {
         //FtcDashboard.getInstance().startCameraStream(visionPortal, 0);
     }   // end method initAprilTag()
 
+    // Sends exposure and gain to the camera once it is streaming,
+    // and again whenever the values are changed in Dashboard.
+    private void UpdateCameraExposure() {
+        if (visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING) {
+            return;   // camera still starting up; try again next loop
+        }
+        if (appliedManual
+                && EXPOSURE_MS == appliedExposureMs
+                && GAIN == appliedGain) {
+            return;   // nothing changed
+        }
+
+        ExposureControl exposureControl = visionPortal.getCameraControl(ExposureControl.class);
+        GainControl gainControl = visionPortal.getCameraControl(GainControl.class);
+
+        if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
+            exposureControl.setMode(ExposureControl.Mode.Manual);
+            opMode.sleep(50);   // give the camera time to switch modes
+        }
+        // Keep the values inside what this camera supports.
+        long minMs = exposureControl.getMinExposure(TimeUnit.MILLISECONDS) + 1;
+        long maxMs = exposureControl.getMaxExposure(TimeUnit.MILLISECONDS);
+        long ms = Math.max(minMs, Math.min(maxMs, EXPOSURE_MS));
+        exposureControl.setExposure(ms, TimeUnit.MILLISECONDS);
+
+        if (gainControl != null) {
+            int gain = Math.max(gainControl.getMinGain(), Math.min(gainControl.getMaxGain(), GAIN));
+            gainControl.setGain(gain);
+        }
+
+        appliedManual = true;
+        autoRestored = false;
+        appliedExposureMs = EXPOSURE_MS;
+        appliedGain = GAIN;
+    }
+
+    // Puts the camera back on auto exposure if we had switched it to manual.
+    // The webcam can remember manual mode, so we switch it back on purpose.
+    private void RestoreAutoExposure() {
+        if (autoRestored
+                || visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING) {
+            return;   // already done, or camera still starting up
+        }
+        ExposureControl exposureControl = visionPortal.getCameraControl(ExposureControl.class);
+        if (exposureControl.getMode() != ExposureControl.Mode.Auto) {
+            exposureControl.setMode(ExposureControl.Mode.Auto);
+        }
+        appliedManual = false;
+        autoRestored = true;
+    }
+
     // Process Detections and storing in AprilTagData to be used with other classes
     private void ProcessDetections(AprilTagDetection detection, AprilTagData Data) {
         // Step through the list of detections and display info for each one.
@@ -186,6 +283,8 @@ public class AprilTag {
     private void ProcessAprilTags() {
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
         opMode.telemetry.addData("# AprilTags Detected...", currentDetections.size());
+        opMode.telemetry.addData("Camera", "%s, exposure %d ms, gain %d",
+                MANUAL_EXPOSURE ? "MANUAL" : "AUTO", EXPOSURE_MS, GAIN);
         //opMode.telemetry.addData("camera", visionPortal.getCameraState());
         //opMode.telemetry.addData("FPS", visionPortal.getFps());
         detectionState.ResetStates();
