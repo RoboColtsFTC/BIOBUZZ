@@ -35,6 +35,9 @@ public class LocalizationTest extends LinearOpMode {
             Pose2d pose = drive.localizer.getPose();
             telemetry.addData("x", pose.position.x);
             telemetry.addData("y", pose.position.y);
+            telemetry.addData("left_stick_y", gamepad1.left_stick_y);
+            telemetry.addData("left_stick_x", gamepad1.left_stick_x);
+            telemetry.addData("right_stick_x", gamepad1.right_stick_x);
             telemetry.addData("Pinpoint status", drive.localizer.GetIMUStatus());
             telemetry.update();
 
