@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.Actuation.Actuators;
 
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -46,7 +47,7 @@ public class ContinuousMotor {
     public ContinuousMotor(HardwareMap hardwareMap, String MotorName, double power) {
         motor = hardwareMap.get(DcMotorEx.class, MotorName);
         motor.setDirection(DcMotorSimple.Direction.FORWARD);
-        motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        motor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
         this.targetPower = norm(power);
         this.isVelocityMode = false;
     }
@@ -76,7 +77,10 @@ public class ContinuousMotor {
     }
 
     public double GetVelocity() {
-        return motor.getVelocity();
+        return (motor.getVelocity()*60 / 28);
+    }
+    public double GetPower() {
+        return motor.getPower();
     }
 
     public boolean IsRunning() {
@@ -149,10 +153,10 @@ public class ContinuousMotor {
 
     /** Changes the target power. Applied immediately if the motor is already running. */
     public void SetPower(double power) {
-        targetPower = norm(power);
-        if (isrunning) {
-            applyPower(targetPower);
-        }
+        targetPower = power;
+//        if (isrunning) {
+//            applyPower(targetPower);
+//        }
     }
 
     public Direction GetDirection() {

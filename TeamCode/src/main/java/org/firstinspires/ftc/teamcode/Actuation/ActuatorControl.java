@@ -57,11 +57,11 @@ public class ActuatorControl {
 
         // Intake Motor Parameters
         public double IntakeMotor_Power = 1;
-        public double Launchmmotor_One_Power = .73;  // ticks per second
-        public double Launchmmotor_Two_Power = .73;
+        public double Launchmmotor_One_Power = 1;  // ticks per second
+        public double Launchmmotor_Two_Power = 1;
 
         // Feed control Parameters
-        public double Feed_Power = 1;
+        public double Feed_Power = .5;
     }
 
     public static GoBuildaPWMLight LockIndicator1, LockIndicator2, SpindexerStateIndicator2;
@@ -77,15 +77,19 @@ public class ActuatorControl {
         actuators.IntakeMotor_One = new ContinuousMotor(hardwaremap, "IntakeMotor", param.IntakeMotor_Power);
         actuators.FeedMotor = new ContinuousMotor(hardwaremap, "FeedMotor", param.Feed_Power );
 
-//        actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
-//        actuators.LaunchMotor_Two = new ContinuousMotor(hardwaremap, "LaunchMotor 2", param.Launchmmotor_Two_Power);
+        // Nectar
+       actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
+        actuators.LaunchMotor_One.SetReverse();
+        // Pollen
+       actuators.LaunchMotor_Two = new ContinuousMotor(hardwaremap, "LaunchMotor 2", param.Launchmmotor_Two_Power);
 
 
        actuators.BeamBrake = hardwaremap.get(DigitalChannel.class, "BeamBreak");
        actuators.BeamBrake.setMode(DigitalChannel.Mode.INPUT);
 
-        intake = new Intake(this.opmode, actuators);
+
        launchgamepeace = new LaunchGamePeace(this.opmode, actuators);
+       intake = new Intake(this.opmode, actuators,launchgamepeace);
 
 //        LockIndicator1= new GoBuildaPWMLight(hardwaremap,"light1");
 //        LockIndicator2= new GoBuildaPWMLight(hardwaremap,"light2");
@@ -99,6 +103,7 @@ public class ActuatorControl {
 
         intake.run();
         launchgamepeace.run();
+
 
    }
 

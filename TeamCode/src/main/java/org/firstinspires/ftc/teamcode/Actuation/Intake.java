@@ -14,6 +14,7 @@ public class Intake {
 
     public Actuators actuators;
     public LinearOpMode opmode;
+    public LaunchGamePeace launchgamepeace;
 
     private boolean Forward_Debounce = false;
     private boolean Reverse_Debounce = false;
@@ -26,19 +27,20 @@ public class Intake {
 
     private State ForwardState = State.IDLE;
     private State ReverseState = State.IDLE;
-    private State StopState = State.IDLE;
+    public State StopState = State.IDLE;
 
-    public Intake(LinearOpMode opmode, Actuators actuators) {
+    public Intake(LinearOpMode opmode, Actuators actuators,LaunchGamePeace launchgamepeace) {
         this.opmode = opmode;
         this.actuators = actuators;
+        this.launchgamepeace=launchgamepeace;
     }
 
     public Action Intake_auto() {
         return new Action() {
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
-                // FIX: Road Runner keeps calling run() while it returns true.
-                // Return "still busy" so the action ends once the intake is up to speed.
+                // Road Runner keeps calling run() while it returns true.
+                // Returns false once the intake is up to speed, ending the action.
                 return Intake_run_Forward();
             }
         };
@@ -52,25 +54,28 @@ public class Intake {
 
     /** Call this once every loop. */
     public void run() {
-        boolean forwardBtn = opmode.gamepad1.left_bumper;
-        boolean reverseBtn = opmode.gamepad1.left_trigger > 0.5;
+        // Left trigger:  intake forward + feed reverse
+        // Left bumper:   intake reverse + feed stop
+        // Right bumper:  stop both
+        boolean forwardBtn = opmode.gamepad1.left_trigger > 0.5;
+        boolean reverseBtn = opmode.gamepad1.left_bumper;
         boolean stopBtn = opmode.gamepad1.right_bumper;
 
-        // Rising edge + nothing else in progress  (FIX: && not ||)
+        // Rising edge + nothing else in progress
         if (forwardBtn && !Forward_Debounce && allIdle()) {
             ForwardState = State.RUN;
         }
         if (reverseBtn && !Reverse_Debounce && allIdle()) {
             ReverseState = State.RUN;
         }
-        if (stopBtn && !Stop_Debounce && allIdle()) {
+        if (stopBtn && !Stop_Debounce && allIdle() || launchgamepeace.state == LaunchGamePeace.State.START) {
             StopState = State.RUN;
         }
         Forward_Debounce = forwardBtn;
         Reverse_Debounce = reverseBtn;
         Stop_Debounce = stopBtn;
 
-        // FIX: the run methods return true while BUSY, so go IDLE when they return false
+        // The run methods return true while BUSY, so go IDLE when they return false
         if (ForwardState == State.RUN && !Intake_run_Forward()) {
             ForwardState = State.IDLE;
         }
@@ -88,22 +93,26 @@ public class Intake {
         opmode.telemetry.addData("Feed running", actuators.FeedMotor.IsRunning());
     }
 
-    // FIX: call BOTH motors every loop. "a() || b()" skips b() whenever a() is true.
+    // Call BOTH motors every loop. "a() || b()" would skip b() whenever a() is true.
     public boolean Intake_run_Forward() {
-        boolean intakeBusy = actuators.IntakeMotor_One.runForward();
-        boolean feedBusy = actuators.FeedMotor.runForward();
+        boolean intakeBusy = actuators.IntakeMotor_One.runReverse();
+        boolean feedBusy = actuators.FeedMotor.runReverse();
         return intakeBusy || feedBusy;
     }
 
     public boolean Intake_run_Reverse() {
+        actuators.FeedMotor.SetPower(.5);
         boolean feedBusy = actuators.FeedMotor.StopMotor();
-        boolean intakeBusy = actuators.IntakeMotor_One.runReverse();
+        boolean intakeBusy = actuators.IntakeMotor_One.runForward();
         return feedBusy || intakeBusy;
     }
 
     public boolean Intake_run_Stop() {
         boolean intakeBusy = actuators.IntakeMotor_One.StopMotor();
-        boolean feedBusy = actuators.FeedMotor.StopMotor();
+        boolean feedBusy = false;
+        if(!(launchgamepeace.state == LaunchGamePeace.State.START)) {
+           feedBusy = actuators.FeedMotor.StopMotor();
+        }
         return intakeBusy || feedBusy;
     }
 }
