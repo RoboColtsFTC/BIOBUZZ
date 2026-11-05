@@ -15,6 +15,7 @@ public class Intake {
     public Actuators actuators;
     public LinearOpMode opmode;
     public LaunchGamePeace launchgamepeace;
+    public ActuatorControl.Params param;
 
     private boolean Forward_Debounce = false;
     private boolean Reverse_Debounce = false;
@@ -29,10 +30,11 @@ public class Intake {
     private State ReverseState = State.IDLE;
     public State StopState = State.IDLE;
 
-    public Intake(LinearOpMode opmode, Actuators actuators,LaunchGamePeace launchgamepeace) {
+    public Intake(LinearOpMode opmode, Actuators actuators,LaunchGamePeace launchgamepeace,ActuatorControl.Params param) {
         this.opmode = opmode;
         this.actuators = actuators;
         this.launchgamepeace=launchgamepeace;
+        this.param=param;
     }
 
     public Action Intake_auto() {
@@ -101,7 +103,7 @@ public class Intake {
     }
 
     public boolean Intake_run_Reverse() {
-        actuators.FeedMotor.SetPower(.5);
+        actuators.FeedMotor.SetPower(param.Feed_Power_Load);
         boolean feedBusy = actuators.FeedMotor.StopMotor();
         boolean intakeBusy = actuators.IntakeMotor_One.runForward();
         return feedBusy || intakeBusy;

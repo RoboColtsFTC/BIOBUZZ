@@ -61,12 +61,13 @@ public class ActuatorControl {
         public double Launchmmotor_Two_Power = 1;
 
         // Feed control Parameters
-        public double Feed_Power = .5;
+        public double Feed_Power_Load = .5;
+        public double Feed_Power_Launch=.1;
     }
 
     public static GoBuildaPWMLight LockIndicator1, LockIndicator2, SpindexerStateIndicator2;
 
-    Params param = new Params();
+    public Params param = new Params();
 
 
     public ActuatorControl(LinearOpMode opmode) {
@@ -75,7 +76,7 @@ public class ActuatorControl {
         this.hardwaremap = opmode.hardwareMap;
 
         actuators.IntakeMotor_One = new ContinuousMotor(hardwaremap, "IntakeMotor", param.IntakeMotor_Power);
-        actuators.FeedMotor = new ContinuousMotor(hardwaremap, "FeedMotor", param.Feed_Power );
+        actuators.FeedMotor = new ContinuousMotor(hardwaremap, "FeedMotor", param.Feed_Power_Load );
 
         // Nectar
        actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
@@ -88,8 +89,8 @@ public class ActuatorControl {
        actuators.BeamBrake.setMode(DigitalChannel.Mode.INPUT);
 
 
-       launchgamepeace = new LaunchGamePeace(this.opmode, actuators);
-       intake = new Intake(this.opmode, actuators,launchgamepeace);
+       launchgamepeace = new LaunchGamePeace(this.opmode, actuators,param);
+       intake = new Intake(this.opmode, actuators,launchgamepeace,param);
 
 //        LockIndicator1= new GoBuildaPWMLight(hardwaremap,"light1");
 //        LockIndicator2= new GoBuildaPWMLight(hardwaremap,"light2");

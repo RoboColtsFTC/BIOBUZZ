@@ -15,6 +15,7 @@ public class LaunchGamePeace {
 
     public Actuators actuators;
     public LinearOpMode opmode;
+    public ActuatorControl.Params param;
 
     private final ElapsedTime LauncherRuntime = new ElapsedTime();
     private final ElapsedTime StopSEQDelay = new ElapsedTime();
@@ -24,9 +25,10 @@ public class LaunchGamePeace {
     private double StopSEQDelay_ms = 0;
     private double StartSEQDelay_ms = 0;
 
-    public LaunchGamePeace(LinearOpMode opmode, Actuators actuators) {
+    public LaunchGamePeace(LinearOpMode opmode, Actuators actuators, ActuatorControl.Params param) {
         this.opmode = opmode;
         this.actuators = actuators;
+        this.param=param;
     }
 
     public boolean autoLaunch = false;
@@ -190,7 +192,7 @@ public class LaunchGamePeace {
 
             case WAIT:
                 // Run feed motor; once it reports done, the sequence is complete
-                actuators.FeedMotor.SetPower(1);
+                actuators.FeedMotor.SetPower(param.Feed_Power_Launch);
                 if (!actuators.FeedMotor.runForward()) {
                     StartState = State.SEQCOMPLETE;
                 }
