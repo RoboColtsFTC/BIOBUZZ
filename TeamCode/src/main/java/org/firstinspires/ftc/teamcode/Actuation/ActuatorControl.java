@@ -57,17 +57,21 @@ public class ActuatorControl {
 
         // Intake Motor Parameters
         public double IntakeMotor_Power = 1;
-        public double Launchmmotor_One_Power = 1;  // ticks per second
-        public double Launchmmotor_Two_Power = 1;
+        // Nectar
+        public double Launchmmotor_One_Power = .73;  // ticks per second
+        // Pollen
+        public double Launchmmotor_Two_Power = .85;
 
         // Feed control Parameters
+
         public double Feed_Power_Load = .5;
-        public double Feed_Power_Launch=.1;
+
+        public double Feed_Power_Launch=1;
     }
 
     public static GoBuildaPWMLight LockIndicator1, LockIndicator2, SpindexerStateIndicator2;
 
-    public Params param = new Params();
+    public static Params param = new Params();
 
 
     public ActuatorControl(LinearOpMode opmode) {

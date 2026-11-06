@@ -64,6 +64,8 @@ public class LaunchGamePeace {
                     StartState = State.START;
                     LauncherRuntime.reset();
                     initialized = true;
+                    StartSEQDelay_ms=3000;
+
                 }
                 return LaunchGamePeace_run();
             }
@@ -186,15 +188,23 @@ public class LaunchGamePeace {
         switch (StartState) {
             case START:
 //                actuators.LaunchGate.SetSecond();
-                StartState = State.WAIT;
-                StartSEQDelay.reset();
+
+                boolean readyone = actuators.LaunchMotor_One.isMotorAtPower();
+                boolean readytwo = actuators.LaunchMotor_Two.isMotorAtPower();
+                if( readyone && readytwo) {
+                    StartState = State.WAIT;
+                    StartSEQDelay.reset();
+                    StartSEQDelay.reset();
+                }
                 break;
 
             case WAIT:
                 // Run feed motor; once it reports done, the sequence is complete
-                actuators.FeedMotor.SetPower(param.Feed_Power_Launch);
-                if (!actuators.FeedMotor.runForward()) {
-                    StartState = State.SEQCOMPLETE;
+                if(StartSEQDelay.milliseconds()>StartSEQDelay_ms) {
+                    actuators.FeedMotor.SetPower(param.Feed_Power_Launch);
+                    if (!actuators.FeedMotor.runForward()) {
+                        StartState = State.SEQCOMPLETE;
+                    }
                 }
                 break;
 
@@ -207,7 +217,7 @@ public class LaunchGamePeace {
     public void LaunchGamePeace_stop() {
         switch (StopState) {
             case START:
-                LaunchMotorState = State.STOP;
+                //LaunchMotorState = State.STOP;
                 actuators.FeedMotor.StopMotor();
                 StopSEQDelay.reset();
                 StopState = State.WAIT;

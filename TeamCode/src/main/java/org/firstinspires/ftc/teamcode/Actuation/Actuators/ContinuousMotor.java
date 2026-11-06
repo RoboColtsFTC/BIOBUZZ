@@ -27,7 +27,7 @@ public class ContinuousMotor {
 
     private static final double TICKS_PER_REV = 28;       // bare motor encoder (matches GetVelocity)
     private static final double VELOCITY_TOLERANCE = 20;  // ticks/sec
-    private static final double POWER_TOLERANCE = .02;
+    private static final double POWER_TOLERANCE = .001;
 
     public enum Direction {
         FORWARD,
@@ -55,9 +55,8 @@ public class ContinuousMotor {
 
     public ContinuousMotor(HardwareMap hardwareMap, String MotorName, double power) {
         motor = hardwareMap.get(DcMotorEx.class, MotorName);
-        motor.setDirection(DcMotorSimple.Direction.FORWARD);
-        SetEnconding(false);
-        motor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
+        SetEnconding(true);
+        motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         this.targetPower = norm(power);
         this.isVelocityMode = false;
     }
@@ -65,8 +64,7 @@ public class ContinuousMotor {
     // inputmode "velocity" -> value is ticks/sec; anything else -> value is power.
     public ContinuousMotor(HardwareMap hardwareMap, String MotorName, double value, String inputmode) {
         motor = hardwareMap.get(DcMotorEx.class, MotorName);
-        motor.setDirection(DcMotorSimple.Direction.FORWARD);
-        SetEnconding(false);
+        SetEnconding(true);
         motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         if (Objects.equals(inputmode, "velocity")) {
             this.targetVelocity = normVel(value);

@@ -123,24 +123,21 @@ public class Drivetrain {
         packet.put("isRedGoalAprilTagDetected",TagData.detectionState.isRedGoalAprilTagDetected);
         dashboard.sendTelemetryPacket(packet);
 
-       if(driver.a) {
-           thetaPower = controller.calculate(headingAngle, -45 + 180);
-        } else if(driver.x){
-           thetaPower = controller.calculate(headingAngle, 90);
-       } else if(driver.b) {
-           thetaPower = controller.calculate(headingAngle, -90);
+//       if(driver.a) {
+//           thetaPower = controller.calculate(headingAngle, -45 + 180);
+//        } else if(driver.x){
+//           thetaPower = controller.calculate(headingAngle, 90);
+//       } else if(driver.b) {
+//           thetaPower = controller.calculate(headingAngle, -90);
+//
+//       } else
 
-       } else if ((driver.right_trigger>.5) &&  TagData.detectionState.isAnyTagDetected){
+        if ((driver.right_trigger>.5) &&  TagData.detectionState.isAnyTagDetected){
                 thetaPower=drive.RotateTwardsGoal();
 //               thetaPower = controller.calculate(headingAngle, AprilTagBearing) * ApirlTagRotationGain;
                opMode.telemetry.addData("IMU Reading", "%5.1f inches", AprilTagBearing);
 
        } else {
-
-
-
-
-
 
           thetaPower = -driver.right_stick_x * Math.PI;
        }
