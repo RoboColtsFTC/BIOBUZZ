@@ -47,12 +47,13 @@ public class AprilTag {
     // EXPOSURE_MS: how long each picture is exposed, in milliseconds.
     //   Lower  = sharper while moving, but darker.
     //   Higher = brighter, but blurs when the robot turns.
-    //   Values outside what the camera supports are clamped to its min/max.
+    //   Our Arducam OV9281 accepts 1 to 500 here; keep it under about 8
+    //   (the camera runs 120 frames/sec, about 8 ms per frame).
     //
     // GAIN: brightness boost (like ISO on a phone camera).
     //   Higher = brighter, but a grainier picture.
     //   Lower  = cleaner picture, but darker.
-    //   Raise GAIN to make up for a low EXPOSURE_MS. Clamped to the camera's range.
+    //   Raise GAIN to make up for a low EXPOSURE_MS. Range is 0 to 100.
     //
     // How to tune (FTC Dashboard, Configuration > AprilTag):
     //   1. Run a TeleOp and press PLAY (settings are applied after start).
@@ -65,8 +66,8 @@ public class AprilTag {
     //   6. Dashboard changes are lost on restart: type the final
     //      numbers in below and commit them.
     public static boolean MANUAL_EXPOSURE = true;
-    public static int EXPOSURE_MS = 6;
-    public static int GAIN = 250;
+    public static int EXPOSURE_MS = 3;   // tuned at school 2026-11-05
+    public static int GAIN = 60;
 
     // What was last sent to the camera, so we only send changes.
     private boolean appliedManual = false;
