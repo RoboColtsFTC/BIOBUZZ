@@ -9,29 +9,29 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.drivetrain.MecanumDrive;
 
-@Autonomous(name="BlueAutoFar", group="Robot")
-public final class BlueAutoFar extends LinearOpMode {
+@Autonomous(name="RedAutoPark", group="Robot")
+public final class RedAutoPark extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         Pose2d beginPose = new Pose2d(0, 0, Math.toRadians(0));
         MecanumDrive drive = new MecanumDrive(hardwareMap, beginPose);
 
-       Robot robot = new Robot(this,false);
+       Robot robot = new Robot(this,true);
 
         waitForStart();
         /* -------------------------------------------------------------------------------------- */
 
        // beginPose = new Pose2d(0, 0, Math.toRadians(0));
         drive.localizer.setPose(beginPose);
-        Actions.runBlocking(drive.actionBuilder(beginPose)            //  .strafeToLinearHeading(new Vector2d(0,-10), Math.toRadians(-90))
-             //   .turn(Math.toRadians(45))
-                .strafeToLinearHeading(new Vector2d(15,0), Math.toRadians(0)) // move from start into shooting position
-                .waitSeconds(1) // **** Add shooting here ****
-                .strafeToLinearHeading(new Vector2d(15,24), Math.toRadians(0))
-                .strafeToLinearHeading(new Vector2d(85,47), Math.toRadians(0))
-////                .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto(850))
+        Actions.runBlocking(drive.actionBuilder(beginPose)
+                //   .turn(Math.toRadians(45))
+                .strafeToLinearHeading(new Vector2d(-4,-12), Math.toRadians(0)) // move from start into shooting position
+
+//             .stopAndAdd(robot.actuatorcontrol.intake.Intake_auto())  //start intake action
 
                 .build());
+
+
 
     }
 }

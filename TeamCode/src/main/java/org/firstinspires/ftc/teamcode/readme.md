@@ -123,7 +123,7 @@ Spins the flywheels up, then fires all three stored artifacts in order.
   - **gamepad2.X** → far shot, flywheel velocity **1650** ticks/s.
   - **gamepad2.Y** → close shot, flywheel velocity **1400** ticks/s.
 - Trigger from Autonomous: `Launch_Auto(velocity)` returns a Road Runner `Action`; the
-  routine passes an explicit velocity (e.g. `1380` in `RedAutoNear`).
+  routine passes an explicit velocity (e.g. `1380` in `RedAutoLaunch`).
 - On completion it resets `ControlState` to `ready`, `LoadSpindexer` to `Empty`, and
   clears `colorPos`.
 
@@ -261,8 +261,8 @@ Eight Road Runner `@Autonomous` routines, group `"Robot"`:
 
 | Name | Alliance | Start heading | Notes |
 |---|---|---|---|
-| `RedAutoNear` / `BlueAutoNear` | Red / Blue | 45° | Strafe to launch spot, `Launch_Auto`, park. Active. |
-| `RedAutoFar` / `BlueAutoFar` | Red / Blue | — | Far starting position variant. Active. |
+| `RedAutoLaunch` / `BlueAutoLaunch` | Red / Blue | 45° | Strafe to launch spot, `Launch_Auto`, park. Active. |
+| `RedAutoPark` / `BlueAutoPark` | Red / Blue | — | Far starting position variant. Active. |
 | `RedAutoNearReload` / `BlueAutoNearReload` | Red / Blue | — | Adds an intake/reload cycle. **`@Disabled`.** |
 | `RedAutoFarReload` / `BlueAutoFarReload` | Red / Blue | 90° | Launch → drive to intake → reload → return → launch → park. **`@Disabled`** (launch/load `stopAndAdd` calls currently commented out). |
 
@@ -355,7 +355,7 @@ Names the code expects in the active Robot Controller configuration:
   **FTC Dashboard** (`http://192.168.43.1:8080/dash` on the field network): `Robot`,
   `ActuatorControl`, `Drivetrain`, `MecanumDrive`, `SpindexerControl`, `LaunchGamePeace`,
   `LoadSpindexer`, and most test OpModes.
-- Flywheel launch velocities (`1650` far / `1400` close, `1380` in `RedAutoNear`) were
+- Flywheel launch velocities (`1650` far / `1400` close, `1380` in `RedAutoLaunch`) were
   calibrated at ~12.5 V — re-check after a battery or flywheel change.
 - Spindexer slot angles, kicker angles, and color thresholds/distance windows are the
   values most likely to drift between events; the `Test*` OpModes exist to re-tune each
