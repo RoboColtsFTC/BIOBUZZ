@@ -52,7 +52,7 @@ public class ActuatorControl {
     //   false = new shooter code: after each shot the feeder reverses for
     //           Feed_Requeue_ms to pull back a ball stuck before the shooters,
     //           plus the fix for changing motor direction in the middle of a ramp.
-    public static boolean ORIGINAL_SHOOTER = true;
+    public static boolean ORIGINAL_SHOOTER = false;
 
     public static class Params {
 
