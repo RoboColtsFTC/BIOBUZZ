@@ -96,15 +96,23 @@ public class Intake {
     }
 
     // Call BOTH motors every loop. "a() || b()" would skip b() whenever a() is true.
+    // The feeder belongs to the shooter while a shot is running, so leave it alone then.
+    // Two callers driving the feeder in opposite directions makes it flip back and forth.
     public boolean Intake_run_Forward() {
         boolean intakeBusy = actuators.IntakeMotor_One.runReverse();
-        boolean feedBusy = actuators.FeedMotor.runReverse();
+        boolean feedBusy = false;
+        if (launchgamepeace.state == LaunchGamePeace.State.SEQCOMPLETE) {
+            feedBusy = actuators.FeedMotor.runReverse();
+        }
         return intakeBusy || feedBusy;
     }
 
     public boolean Intake_run_Reverse() {
-        actuators.FeedMotor.SetPower(param.Feed_Power_Load);
-        boolean feedBusy = actuators.FeedMotor.StopMotor();
+        boolean feedBusy = false;
+        if (launchgamepeace.state == LaunchGamePeace.State.SEQCOMPLETE) {
+            actuators.FeedMotor.SetPower(param.Feed_Power_Load);
+            feedBusy = actuators.FeedMotor.StopMotor();
+        }
         boolean intakeBusy = actuators.IntakeMotor_One.runForward();
         return feedBusy || intakeBusy;
     }
