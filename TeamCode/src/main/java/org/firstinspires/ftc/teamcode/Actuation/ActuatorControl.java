@@ -52,7 +52,7 @@ public class ActuatorControl {
     //   false = new shooter code: after each shot the feeder reverses for
     //           Feed_Requeue_ms to pull back a ball stuck before the shooters,
     //           plus the fix for changing motor direction in the middle of a ramp.
-    public static boolean ORIGINAL_SHOOTER = false;
+    public static boolean ORIGINAL_SHOOTER = true;
 
     public static class Params {
 
@@ -106,6 +106,11 @@ public class ActuatorControl {
 
         actuators.IntakeMotor_One = new ContinuousMotor(hardwaremap, "IntakeMotor", param.IntakeMotor_Power);
         actuators.FeedMotor = new ContinuousMotor(hardwaremap, "FeedMotor", param.Feed_Power_Load );
+        // Intake and feeder run on plain power, as before 2026-11-05. In RUN_USING_ENCODER the
+        // Hub's velocity PID drives them from the encoder, and the intake ran, slowed, then
+        // went full reverse on its own. Only the launch motors need the encoder.
+        actuators.IntakeMotor_One.SetEnconding(false);
+        actuators.FeedMotor.SetEnconding(false);
 
         // Nectar
        actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
