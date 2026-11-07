@@ -85,7 +85,7 @@ public class Drivetrain {
         drive.localizer.update();
         pos = drive.localizer.getPose();  // updated for
         headingAngle=drive.localizer.getHeading();//Math.toDegrees(pos.heading.toDouble());
-        headingAngleRotated= Rotation2d.fromDegrees(headingAngle+180);
+        headingAngleRotated= Rotation2d.fromDegrees(headingAngle);
         //QheadingAngleRotated= Rotation2d.fromDegrees(headingAngle);
 //        if(TagData.red) {
 //            AprilTagBearing = TagData.Red.Bearing;

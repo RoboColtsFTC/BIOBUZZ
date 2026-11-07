@@ -26,7 +26,9 @@ public final class BlueAutoLaunch extends LinearOpMode {
                 //   .turn(Math.toRadians(45))
                 //.strafeToLinearHeading(new Vector2d(15,0), Math.toRadians(0)) // move from start into shooting position
                                 .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto())
-                //              .waitSeconds(1) // **** Add shooting here ****
+                //               .stopAndAdd(robot.actuatorcontrol.intake.Intake_auto())
+                //               .waitSeconds(3)
+                //                .strafeToLinearHeading(new Vector2d(38,0), Math.toRadians(0))
                                 .strafeToLinearHeading(new Vector2d(34,0), Math.toRadians(0))
                                 .strafeToLinearHeading(new Vector2d(38,-85), Math.toRadians(0))
                                 .strafeToLinearHeading(new Vector2d(42,-85), Math.toRadians(0))
