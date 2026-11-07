@@ -19,6 +19,7 @@ public class BlueTeleop extends LinearOpMode {
 
         while (opModeIsActive()) {
             robot.runRobot();
+            telemetry.update();
         }
     }
 }

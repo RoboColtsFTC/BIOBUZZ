@@ -112,7 +112,9 @@ public class Intake {
     public boolean Intake_run_Stop() {
         boolean intakeBusy = actuators.IntakeMotor_One.StopMotor();
         boolean feedBusy = false;
-        if(!(launchgamepeace.state == LaunchGamePeace.State.START)) {
+        // Only stop the feeder when no shot is in progress. The old check (state != START)
+        // let this stop the feeder in the middle of a shot, once the shot left START.
+        if (launchgamepeace.state == LaunchGamePeace.State.SEQCOMPLETE) {
            feedBusy = actuators.FeedMotor.StopMotor();
         }
         return intakeBusy || feedBusy;

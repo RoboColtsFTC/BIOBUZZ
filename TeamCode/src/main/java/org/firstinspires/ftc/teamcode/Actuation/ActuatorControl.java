@@ -47,6 +47,12 @@ public class ActuatorControl {
     public LinearOpMode opmode;
     public HardwareMap hardwaremap;
 
+    // Shooter code selector:
+    //   true  = original shooter code
+    //   false = new shooter code: after each shot the feeder reverses for
+    //           Feed_Requeue_ms to pull back a ball stuck before the shooters,
+    //           plus the fix for changing motor direction in the middle of a ramp.
+    public static boolean ORIGINAL_SHOOTER = false;
 
     public static class Params {
 
@@ -59,14 +65,33 @@ public class ActuatorControl {
         public double IntakeMotor_Power = 1;
         // Nectar
         public double Launchmmotor_One_Power = .73;  // ticks per second
+        public double Nectar_Ready_RPM = 3400;   // 95% of 3686 settled at .73 (2026-11-06, 11.8 V)
+
         // Pollen
-        public double Launchmmotor_Two_Power = .85;
+        public double Launchmmotor_Two_Power = .72;
+        public double Pollen_Ready_RPM = 3300;   // 95% of 4286 settled at .85 (2026-11-06, 11.8 V)
+        // Shoot anyway after this long (ms), so a bad encoder can't block shooting.
 
         // Feed control Parameters
 
         public double Feed_Power_Load = .5;
 
         public double Feed_Power_Launch=1;
+
+        // Requeue shooter timing (ms). Only used when ORIGINAL_SHOOTER is false.
+        // Feed_Launch_ms: how long the feeder pushes balls out. Set it just past the time
+        // the last ball leaves, so the requeue starts right after. (The original code uses 4000.)
+        public double Feed_Launch_ms = 1500;
+        // Feed_Requeue_ms: how long the feeder then runs backward to pull back a stuck ball.
+        public double Feed_Requeue_ms = 750;
+
+        // Spin-up check: a shot waits until each flywheel reaches this speed before feeding.
+        // RPM, read from the "Nectar vel" / "Pollen vel" telemetry: spin up with A, let it
+        // settle, and use about 95% of the reading. Update these whenever the powers change.
+        // 0 = only wait for the power ramp (the old behavior).
+
+
+        public double Spinup_Timeout_ms = 2000;
     }
 
     public static GoBuildaPWMLight LockIndicator1, LockIndicator2, SpindexerStateIndicator2;

@@ -4,6 +4,8 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import org.firstinspires.ftc.teamcode.Actuation.ActuatorControl;
+
 import java.util.Objects;
 
 public class ContinuousMotor {
@@ -295,6 +297,14 @@ public class ContinuousMotor {
      * Returns true while busy, false when running in the requested direction at target.
      */
     private boolean runDirection(Direction wanted) {
+        if (ActuatorControl.ORIGINAL_SHOOTER) {
+            return runDirection_Original(wanted);
+        } else {
+            return runDirection_Requeue(wanted);
+        }
+    }
+
+    private boolean runDirection_Original(Direction wanted) {
         switch (dirChangeState) {
             case IDLE:
                 if (GetDirection() == wanted) {
@@ -325,6 +335,61 @@ public class ContinuousMotor {
                 return true;
 
             case START:
+                if (StartMotor()) {
+                    return true;
+                }
+                dirChangeState = DirChangeState.IDLE;
+                return false;
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Same as runDirection_Original, plus one fix: if the requested direction changes
+     * while the motor is ramping up (for example, shoot pressed during a requeue),
+     * ramp down from where it is, change direction, and ramp up again.
+     * Without this, the motor finishes ramping the wrong way and reports done.
+     */
+    private boolean runDirection_Requeue(Direction wanted) {
+        switch (dirChangeState) {
+            case IDLE:
+                if (GetDirection() == wanted) {
+                    if (isrunning && currentOutput == target()) {
+                        return false;              // already running this way at target
+                    }
+                    dirChangeState = DirChangeState.START;   // also re-ramps if the setpoint changed
+                } else if (isrunning) {
+                    dirChangeState = DirChangeState.STOP;
+                } else {
+                    dirChangeState = DirChangeState.CHANGEDIR;
+                }
+                return true;
+
+            case STOP:
+                if (!StopMotor()) {
+                    dirChangeState = DirChangeState.CHANGEDIR;
+                }
+                return true;
+
+            case CHANGEDIR:
+                if (wanted == Direction.FORWARD) {
+                    SetForward();
+                } else {
+                    SetReverse();
+                }
+                dirChangeState = DirChangeState.START;
+                return true;
+
+            case START:
+                if (GetDirection() != wanted) {
+                    // Direction request changed mid-ramp. Ramp down from the
+                    // current output (never flip at speed), then change direction.
+                    MotorState = State.EXICUTING;
+                    dirChangeState = DirChangeState.STOP;
+                    return true;
+                }
                 if (StartMotor()) {
                     return true;
                 }

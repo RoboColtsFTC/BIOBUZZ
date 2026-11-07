@@ -20,6 +20,7 @@ public class LaunchGamePeace {
     private final ElapsedTime LauncherRuntime = new ElapsedTime();
     private final ElapsedTime StopSEQDelay = new ElapsedTime();
     private final ElapsedTime StartSEQDelay = new ElapsedTime();
+    private final ElapsedTime RequeueTimer = new ElapsedTime();
 
     private double LauncherRuntime_ms = 4000;
     private double StopSEQDelay_ms = 0;
@@ -39,6 +40,7 @@ public class LaunchGamePeace {
         START,
         STOP,
         WAIT,
+        REQUEUE,
         SEQCOMPLETE
     }
 
@@ -74,7 +76,9 @@ public class LaunchGamePeace {
 
     public void run() {
 
-        if (opmode.gamepad2.right_trigger_pressed) {
+        // rightTriggerWasPressed() is true once per press. right_trigger_pressed is true the
+        // whole time the trigger is held, which restarted the shot (and its timers) every loop.
+        if (opmode.gamepad2.rightTriggerWasPressed()) {
             LaunchMotorState = State.START;
             state = State.START;
             StartState = State.START;
@@ -153,6 +157,15 @@ public class LaunchGamePeace {
     }
 
     public boolean LaunchGamePeace_run() {
+        if (ActuatorControl.ORIGINAL_SHOOTER) {
+            return LaunchGamePeace_run_Original();
+        } else {
+            return LaunchGamePeace_run_Requeue();
+        }
+    }
+
+    // Original shooter sequence: shoot for LauncherRuntime_ms, then stop the feeder.
+    public boolean LaunchGamePeace_run_Original() {
         LaunchMotors_run();
         // State Machine for Launcher
         switch (state) {
@@ -160,6 +173,7 @@ public class LaunchGamePeace {
                 LaunchGamePeace_Start();
                 if (StartState == State.SEQCOMPLETE) {
                     state = State.WAIT;
+                    LauncherRuntime.reset();   // full feed time starts now, not at the trigger press
                 }
                 return true;
 
@@ -184,14 +198,66 @@ public class LaunchGamePeace {
         }
     }
 
+    // Requeue shooter sequence: same as the original, but after shooting the feeder
+    // runs in reverse for Feed_Requeue_ms. That pulls a ball stuck between the feeder
+    // and the shooters back into the robot. Pressing shoot during the requeue starts
+    // a new shot (the feeder ramps down, changes direction, and ramps back up).
+    public boolean LaunchGamePeace_run_Requeue() {
+        LaunchMotors_run();
+        // State Machine for Launcher
+        switch (state) {
+            case START:
+                LaunchGamePeace_Start();
+                if (StartState == State.SEQCOMPLETE) {
+                    state = State.WAIT;
+                    LauncherRuntime.reset();   // full feed time starts now, not at the trigger press
+                }
+                return true;
+
+            case WAIT:
+                if (LauncherRuntime.milliseconds() > param.Feed_Launch_ms) {
+                    state = State.REQUEUE;
+                    RequeueTimer.reset();
+                }
+                return true;
+
+            case REQUEUE:
+                // Run the feeder backward, the same way it runs to load balls
+                actuators.FeedMotor.SetPower(param.Feed_Power_Load);
+                actuators.FeedMotor.runReverse();
+                if (RequeueTimer.milliseconds() > param.Feed_Requeue_ms) {
+                    state = State.STOP;
+                    StopState = State.START;
+                }
+                return true;
+
+            case STOP:
+                LaunchGamePeace_stop();
+                return true;
+
+            case SEQCOMPLETE:
+                return false;
+
+            default:
+                state = State.SEQCOMPLETE;
+                autoLaunch = false;
+                return false;
+        }
+    }
+
     public void LaunchGamePeace_Start() {
         switch (StartState) {
             case START:
 //                actuators.LaunchGate.SetSecond();
 
-                boolean readyone = actuators.LaunchMotor_One.isMotorAtPower();
-                boolean readytwo = actuators.LaunchMotor_Two.isMotorAtPower();
-                if( readyone && readytwo) {
+                // Wait until both flywheels are really at speed (measured by encoder),
+                // not just until the power ramp is done. LauncherRuntime was reset when
+                // shoot was pressed, so it times the spin-up for the timeout.
+                boolean readyone = actuators.LaunchMotor_One.isMotorAtPower()
+                        && Math.abs(actuators.LaunchMotor_One.GetVelocity()) >= param.Nectar_Ready_RPM;
+                boolean readytwo = actuators.LaunchMotor_Two.isMotorAtPower()
+                        && Math.abs(actuators.LaunchMotor_Two.GetVelocity()) >= param.Pollen_Ready_RPM;
+                if ((readyone && readytwo) || LauncherRuntime.milliseconds() > param.Spinup_Timeout_ms) {
                     StartState = State.WAIT;
                     StartSEQDelay.reset();
                     StartSEQDelay.reset();
