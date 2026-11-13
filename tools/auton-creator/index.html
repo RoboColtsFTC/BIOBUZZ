@@ -155,6 +155,7 @@
         <button id="btnAim" title="Turn the robot so the shooter faces our upward CELL (F)">Aim <kbd>F</kbd></button>
         <button data-add="intakeOn" title="I">+ Intake on <kbd>I</kbd></button>
         <button data-add="intakeOff" title="O">+ Intake off <kbd>O</kbd></button>
+        <button id="btnLead" title="Turn the robot so a side intake faces the way it drives to here (L)">Intake lead <kbd>L</kbd></button>
         <button data-add="checkTip" title="Check with the camera whether our HIVE tipped, then run one of two branches (C)">+ Check tip <kbd>C</kbd></button>
       </div>
       <div class="row" style="margin-top:8px">
@@ -282,6 +283,14 @@
         right before feeding. The robot code only aims at a CELL that is facing up (it checks the AprilTag roll),
         so if the HIVE tips during AUTO, camera aim goes for the new upward CELL, as long as the camera can see it
         from the planned heading. The page plans for the upward CELL you pick above.</p>
+      <h3>Intakes and motors</h3>
+      <p>The intakes are on both sides, so the robot picks up balls while it strafes. With the intake on, the side
+        intake that leads the drive glows. <kbd>L</kbd> (Intake lead) turns the robot so a side intake faces the way
+        it drives from the last pose to here; then press <kbd>Enter</kbd> for a new waypoint or <kbd>U</kbd> to update
+        the selected one. A move with the intake on that is mostly not intake-first gets a note.</p>
+      <p>The Motors box on the field shows what is running: the shooter, the intake, and the feeder, which is one motor
+        running toward the shooters during a shot or backward to pull balls in. Shoot stops the feeder when it is done,
+        even if the intake is still on, so add Intake on after a shot to keep collecting.</p>
       <h3>Check tip</h3>
       <p><kbd>C</kbd> adds a Check tip step. The camera looks at our HIVE and the routine splits in two:
         the steps after Check tip run if the HIVE has <b>not</b> tipped, and a second list runs if it <b>has</b>
@@ -602,6 +611,46 @@ function poseAtTime(routine, tl, t) {
   return { p, intake, shooter, active };
 }
 
+// What the actuation motors are doing before step i. The intake and feeder are run together
+// by Intake on (feeder backward, pulling balls in). Shoot runs the same feeder forward, then
+// stops it, so after a shot the feeder is off even if the intake is still on.
+function motorsBefore(routine, i) {
+  const m = { shooter: false, intake: false, feed: 'off' };
+  routine.steps.slice(0, i).forEach(s => motorStep(m, s.type));
+  return m;
+}
+function motorStep(m, type) {
+  if (type === 'intakeOn') { m.intake = true; m.feed = 'in'; }
+  if (type === 'intakeOff') { m.intake = false; m.feed = 'off'; }
+  if (type === 'shooterOn') m.shooter = true;
+  if (type === 'shooterOff') m.shooter = false;
+  if (type === 'shoot') { m.shooter = true; m.feed = 'off'; }
+}
+// Motors at time t during playback, including the feeder inside a Shoot
+const SHOOT_FEED_SHARE = 0.6;      // part of the feed time pushing balls out; the rest is the requeue
+function motorsAtTime(routine, tl, t) {
+  const m = { shooter: false, intake: false, feed: 'off' };
+  for (const seg of tl.segs) {
+    if (t < seg.t0) break;
+    const local = t - seg.t0;
+    if (seg.type === 'shoot' && local < seg.T) {
+      m.shooter = true;
+      const f = local - seg.aimT - seg.spinWait;          // time into the feed
+      if (f >= 0) m.feed = f < settings.feedTime * SHOOT_FEED_SHARE ? 'shoot' : 'back';
+      break;
+    }
+    motorStep(m, seg.type);
+  }
+  return m;
+}
+// Which side intake leads when the robot drives in direction dir (degrees), at heading h.
+// Road Runner +y is the robot's left (pts[0]-pts[1] in robotPoly).
+function leadSide(h, dir) {
+  if (Math.abs(angDiff(h + 90, dir)) <= 45) return 'left';
+  if (Math.abs(angDiff(h - 90, dir)) <= 45) return 'right';
+  return null;
+}
+
 // ============================================================================
 // Rule checks
 // ============================================================================
@@ -649,6 +698,31 @@ function checkRoutine(routine, cfg) {
     if (hitLeg) msgs.push(['warn', `Step ${i + 1}: hits a HIVE frame leg.`]);
     else if (inKeep) msgs.push(['warn', `Step ${i + 1}: enters the HIVE leg keepout, ${inKeep} (${inKeep === 'inside' ? kin : kout} in).`]);
     p = { x: s.x, y: s.y, h: s.h };
+  });
+
+  // Intake: leading the move, and the feeder after a shot
+  const mot = { shooter: false, intake: false, feed: 'off' };
+  let q0 = { ...routine.start };
+  routine.steps.forEach((s, i) => {
+    if (s.type === 'move') {
+      const d = Math.hypot(s.x - q0.x, s.y - q0.y);
+      if (mot.intake && d > 3) {
+        const dir = Math.atan2(s.y - q0.y, s.x - q0.x) / DEG, dh = angDiff(q0.h, s.h);
+        let lead = 0;
+        for (let k = 0; k <= 10; k++) if (leadSide(q0.h + dh * k / 10, dir)) lead++;
+        if (lead < 6) msgs.push(['info', `Step ${i + 1}: the intake is on, but neither side intake faces the way the robot drives for most of this move. Drive to the end of the move, click Intake lead (L), then Set selected to robot (U).`]);
+      }
+      q0 = { x: s.x, y: s.y, h: s.h };
+    }
+    if (s.type === 'shoot' && mot.intake) {
+      // Fine if Intake on or Intake off comes before the robot drives again
+      const rest = routine.steps.slice(i + 1);
+      const nIntake = rest.findIndex(t => t.type === 'intakeOn' || t.type === 'intakeOff');
+      const nMove = rest.findIndex(t => t.type === 'move');
+      if (nIntake < 0 || (nMove >= 0 && nMove < nIntake))
+        msgs.push(['info', `Step ${i + 1}: after this shot the feeder stays off while the intake keeps running, so new balls stop at the intake. Add Intake on right after the shot.`]);
+    }
+    motorStep(mot, s.type);
   });
 
   // Shots: aim and range
@@ -995,6 +1069,20 @@ function focusIndex() {
   if (play) return playStep >= 0 ? playStep : ed.steps.length;
   return selected >= 0 ? selected + 1 : ed.steps.length;
 }
+// Turn the robot so the side intake nearer to the travel direction faces the way it
+// drives from the last pose to here.
+function intakeLead() {
+  const i = focusIndex();
+  const sel = selected >= 0 && ed.steps[selected].type === 'move' ? ed.steps[selected] : null;
+  const from = sel && Math.hypot(sel.x - cursor.x, sel.y - cursor.y) < 0.05 ? poseBefore(ed, selected) : poseBefore(ed, i);
+  if (Math.hypot(cursor.x - from.x, cursor.y - from.y) < 1) { notice('Drive the robot to where the move ends, then click Intake lead.'); draw(); return; }
+  const dir = Math.atan2(cursor.y - from.y, cursor.x - from.x) / DEG;
+  const left = normDeg(dir - 90), right = normDeg(dir + 90);
+  const useLeft = Math.abs(angDiff(cursor.h, left)) <= Math.abs(angDiff(cursor.h, right));
+  cursor.h = r1(useLeft ? left : right);
+  notice(`A side intake now leads the drive to here. Heading ${cursor.h}°.`);
+  draw();
+}
 function aim() {
   cursor.h = r1(aimHeading(ed, cursor, settings.shooter, focusIndex()));
   draw();
@@ -1130,9 +1218,14 @@ function drawRobot(p, opts = {}) {
   const pts = robotPoly(p, L, W);
   poly(pts, opts.fill || 'rgba(242,178,51,.25)', opts.stroke || '#f2b233', opts.w || 2);
   const edge = (a, b) => { ctx.beginPath(); ctx.moveTo(sx(a.x), sy(a.y)); ctx.lineTo(sx(b.x), sy(b.y)); ctx.stroke(); };
-  // Intakes on both sides, bright green while running
+  // Intakes on both sides, bright green while running; the one leading the drive glows
   ctx.strokeStyle = opts.intake ? '#3fb950' : 'rgba(63,185,80,.45)'; ctx.lineWidth = opts.intake ? 4 : 2;
   edge(pts[0], pts[1]); edge(pts[2], pts[3]);
+  if (opts.intake && opts.lead) {
+    const [a, b] = opts.lead === 'left' ? [pts[0], pts[1]] : [pts[2], pts[3]];
+    ctx.save(); ctx.strokeStyle = '#aff5b4'; ctx.lineWidth = 8; ctx.shadowColor = '#3fb950'; ctx.shadowBlur = 12;
+    edge(a, b); ctx.restore();
+  }
   // Front (shooter) edge, orange while the flywheels are on
   const fr = settings.shooter === 'back' ? [pts[1], pts[2]] : [pts[0], pts[3]];
   ctx.strokeStyle = opts.shooter ? '#ff7b54' : (opts.frontColor || '#ffffff'); ctx.lineWidth = opts.shooter ? 5 : 3;
@@ -1215,17 +1308,51 @@ function drawRoutine() {
 function drawCursor() {
   const playing = play ? poseAtTime(ed, play.tl, play.t) : null;
   if (playing) {
-    drawRobot(playing.p, { fill: 'rgba(63,185,80,.25)', stroke: '#3fb950', intake: playing.intake, shooter: playing.shooter });
-    if (playing.active && playing.active.type === 'shoot') drawAimLine(playing.p, '#f2b233', false);
+    const m = motorsAtTime(ed, play.tl, play.t), a = playing.active;
+    const lead = a && a.type === 'move' && a.d > 1
+      ? leadSide(playing.p.h, Math.atan2(a.to.y - a.from.y, a.to.x - a.from.x) / DEG) : null;
+    drawRobot(playing.p, { fill: 'rgba(63,185,80,.25)', stroke: '#3fb950', intake: m.intake, shooter: m.shooter, lead });
+    if (a && a.type === 'shoot') drawAimLine(playing.p, '#f2b233', false);
+    drawMotors(m, `at ${play.t.toFixed(1)} s`);
     return;
   }
+  // While editing: the motors as they are where the next step goes, and which intake
+  // would lead if the robot drove from the last pose to here
+  const fi = focusIndex(), m = motorsBefore(ed, fi), from = poseBefore(ed, fi);
+  const lead = Math.hypot(cursor.x - from.x, cursor.y - from.y) > 1
+    ? leadSide(cursor.h, Math.atan2(cursor.y - from.y, cursor.x - from.x) / DEG) : null;
   drawAimLine(cursor, 'rgba(242,178,51,.45)');
-  drawRobot(cursor, {});
+  drawRobot(cursor, { intake: m.intake, shooter: m.shooter, lead });
+  drawMotors(m, fi < ed.steps.length ? `before step ${fi + 1}` : 'at the end');
   // Rotate handle in front of the robot
   const h = rotHandle();
   ctx.beginPath(); ctx.arc(sx(h.x), sy(h.y), 6, 0, 2 * Math.PI);
   ctx.fillStyle = '#f2b233'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
 }
+// Motor panel in the top-left corner of the field view. The two feeder rows are the same
+// motor running forward (to the shooters) or backward (pulling balls in).
+function drawMotors(m, when) {
+  const rows = [
+    ['Shooter', m.shooter, '#ff7b54'],
+    ['Shooter feeder', m.feed === 'shoot', '#f2b233'],
+    ['Intake', m.intake, '#3fb950'],
+    ['Intake feeder' + (m.feed === 'back' ? ' (requeue)' : ''), m.feed === 'in' || m.feed === 'back', '#3fb950'],
+  ];
+  const x = 10, y = 10, w = 168, lh = 18;
+  ctx.save();
+  ctx.fillStyle = 'rgba(21,23,28,.85)'; ctx.strokeStyle = '#353a46'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x, y, w, 26 + rows.length * lh, 6); ctx.fill(); ctx.stroke();
+  ctx.font = '600 11px system-ui, sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#9aa1b2'; ctx.fillText('Motors ' + when, x + 8, y + 12);
+  rows.forEach(([label, on, col], k) => {
+    const ry = y + 28 + k * lh;
+    ctx.fillStyle = on ? col : 'transparent'; ctx.strokeStyle = on ? col : '#6b7280';
+    ctx.fillRect(x + 9, ry - 5, 10, 10); ctx.strokeRect(x + 9, ry - 5, 10, 10);
+    ctx.fillStyle = on ? '#e6e8ee' : '#6b7280'; ctx.fillText(label, x + 26, ry);
+  });
+  ctx.restore();
+}
+
 function rotHandle() {
   const d = settings.len / 2 + 7;
   const a = frontDeg(cursor.h) * DEG;
@@ -1416,6 +1543,7 @@ document.addEventListener('keydown', e => {
   const act = { enter: 'move', ' ': 'shoot', t: 'wait', i: 'intakeOn', o: 'intakeOff', r: 'shooterOn', x: 'shooterOff', c: 'checkTip' }[k];
   if (act) { e.preventDefault(); addStep(act); return; }
   if (k === 'f') { aim(); return; }
+  if (k === 'l') { intakeLead(); return; }
   if (k === 'u') { updateSelected(); return; }
   if (k === 'p') { togglePlay(); return; }
   if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelected(); return; }
@@ -1560,6 +1688,7 @@ $('steps').addEventListener('change', e => {
 });
 document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addStep(b.dataset.add)));
 $('btnAim').onclick = aim;
+$('btnLead').onclick = intakeLead;
 $('btnUpdate').onclick = updateSelected;
 $('btnStartHere').onclick = setStartToCursor;
 document.querySelectorAll('[data-wall]').forEach(b => b.onclick = () => snapToWall(b.dataset.wall));
