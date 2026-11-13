@@ -657,9 +657,9 @@ function checkRoutine(routine, cfg) {
     const info = shotInfo(routine, poseBefore(routine, i), cfg.shooter, i);
     const off = Math.abs(info.err).toFixed(0);
     if (aimOn(s) && Math.abs(info.err) > cfg.aimRange)
-      msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL, more than camera aim can fix (${cfg.aimRange}°). Select the waypoint before it and press F, then U.`]);
+      msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL, more than camera aim can fix (${cfg.aimRange}°). Select the waypoint before it, click Aim (F), then Set selected to robot (U).`]);
     else if (!aimOn(s) && Math.abs(info.err) > 8)
-      msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL and camera aim is off. Select the waypoint before it and press F, then U.`]);
+      msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL and camera aim is off. Select the waypoint before it, click Aim (F), then Set selected to robot (U).`]);
   });
   const tlc = buildTimeline(routine, cfg);
   let on = false;
