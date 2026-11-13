@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auton Creator</title>
+<style>
+  :root {
+    --bg: #15171c;
+    --panel: #1e2128;
+    --panel-2: #262a33;
+    --line: #353a46;
+    --text: #e6e8ee;
+    --muted: #9aa1b2;
+    --accent: #f2b233;
+    --red: #e5484d;
+    --blue: #3e8cf0;
+    --ok: #3fb950;
+    --warn: #e3a008;
+    --err: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); color: #1b1b1b; border-color: var(--accent); font-weight: 600; }
+  button.small { padding: 2px 7px; font-size: 12px; }
+  input[type=number], input[type=text], select { background: var(--bg); border: 1px solid var(--line);
+    border-radius: 5px; padding: 3px 6px; }
+  input[type=number] { width: 68px; }
+  .app { display: grid; grid-template-columns: 1fr 420px; grid-template-rows: auto 1fr; height: 100vh; }
+  header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header .sp { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.on.red { background: var(--red); color: #fff; }
+  .seg button.on.blue { background: var(--blue); color: #fff; }
+  .seg button.on { background: var(--accent); color: #1b1b1b; }
+  .fieldwrap { position: relative; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+  #field { flex: 1; width: 100%; min-height: 0; display: block; outline: none; }
+  .status { display: flex; gap: 14px; flex-wrap: wrap; padding: 6px 12px; border-top: 1px solid var(--line);
+    background: var(--panel); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .status b { color: var(--text); font-weight: 600; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; padding: 9px; color: var(--muted); }
+  .tabs button.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+  .tab { display: none; padding: 10px 12px; overflow: auto; flex: 1; min-height: 0; }
+  .tab.on { display: block; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+  h3:first-child { margin-top: 2px; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  .row label { color: var(--muted); }
+  .addbar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .addbar button { padding: 7px 4px; }
+  kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 4px; padding: 0 4px; color: var(--muted); }
+  ol.steps { list-style: none; margin: 0; padding: 0; }
+  ol.steps li { display: grid; grid-template-columns: 26px 1fr auto; gap: 6px; align-items: center;
+    padding: 6px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+  ol.steps li:hover { background: var(--panel-2); }
+  ol.steps li.sel { border-color: var(--accent); background: var(--panel-2); }
+  ol.steps li.start { cursor: default; }
+  .num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px;
+    font-weight: 700; color: #111; }
+  .t-move { background: #cfd5e2; } .t-shoot { background: var(--accent); } .t-intakeOn { background: var(--ok); }
+  .t-intakeOff { background: #8b93a5; }
+  .t-shooterOn { background: #ff7b54; } .t-shooterOff { background: #a0522d; } .t-wait { background: #b48ead; } .t-start { background: #fff; }
+  .desc { font-variant-numeric: tabular-nums; }
+  .desc .sub { color: var(--muted); font-size: 12px; }
+  .desc input[type=number] { width: 58px; padding: 1px 4px; }
+  .btns { display: flex; gap: 3px; }
+  .msgs { margin: 8px 0 0; padding: 0; list-style: none; }
+  .msgs li { padding: 4px 8px; border-radius: 5px; margin: 3px 0; font-size: 13px; }
+  .msgs .err { background: rgba(248,81,73,.15); color: #ffb3ad; }
+  .msgs .warn { background: rgba(227,160,8,.15); color: #f6d37a; }
+  .msgs .ok { background: rgba(63,185,80,.15); color: #9be3a6; }
+  .msgs .info { background: var(--panel-2); color: var(--muted); }
+  textarea.code { width: 100%; height: 340px; background: #0f1115; border: 1px solid var(--line); border-radius: 6px;
+    font: 12px/1.45 ui-monospace, Menlo, monospace; padding: 8px; white-space: pre; resize: vertical; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .timebar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .timebar > div { height: 100%; background: var(--ok); }
+  .grid2 { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
+  .grid2 label { color: var(--muted); }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; height: auto; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+    .tab { max-height: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Auton Creator</h1>
+    <label class="hint" for="name">Name</label>
+    <input type="text" id="name" size="14" title="Becomes the class names, e.g. Launch -> RedAutoLaunch / BlueAutoLaunch">
+    <span class="seg" id="allianceSeg" title="Which alliance you are drawing for. Switching rotates the routine to the other side.">
+      <button data-a="red">Red</button><button data-a="blue">Blue</button>
+    </span>
+    <button id="btnPlay" class="primary" title="Play the routine (P)">&#9654; Play</button>
+    <span class="sp"></span>
+    <button id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+    <button id="btnNew">New</button>
+    <button id="btnOpen" title="Open a saved .json routine, or a .java file this tool generated">Open</button>
+    <button id="btnSave" title="Download the routine as .json">Save</button>
+    <input type="file" id="fileOpen" accept=".json,.java" hidden>
+  </header>
+
+  <div class="fieldwrap">
+    <canvas id="field" tabindex="0"></canvas>
+    <div class="status" id="status"></div>
+  </div>
+
+  <aside>
+    <div class="tabs">
+      <button data-tab="steps" class="on">Steps</button>
+      <button data-tab="code">Code</button>
+      <button data-tab="settings">Settings</button>
+      <button data-tab="help">Help</button>
+    </div>
+
+    <div class="tab on" id="tab-steps">
+      <h3>Add at the robot's pose</h3>
+      <div class="addbar">
+        <button data-add="move" title="Enter">+ Waypoint <kbd>Enter</kbd></button>
+        <button data-add="shoot" title="Run the feeder to shoot (Space)">+ Shoot <kbd>Space</kbd></button>
+        <button data-add="wait" title="T">+ Wait <kbd>T</kbd></button>
+        <button data-add="shooterOn" title="Spin up the flywheels (R)">+ Shooter on <kbd>R</kbd></button>
+        <button data-add="shooterOff" title="Stop the flywheels (X)">+ Shooter off <kbd>X</kbd></button>
+        <button id="btnAim" title="Turn the robot so the shooter faces our upward CELL (F)">Aim <kbd>F</kbd></button>
+        <button data-add="intakeOn" title="I">+ Intake on <kbd>I</kbd></button>
+        <button data-add="intakeOff" title="O">+ Intake off <kbd>O</kbd></button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnUpdate" class="small" title="Move the selected waypoint to the robot's pose (U)">Set selected to robot <kbd>U</kbd></button>
+        <button id="btnStartHere" class="small" title="Make the robot's pose the start pose">Set start to robot</button>
+      </div>
+      <div class="row">
+        <label for="upCell">Our upward CELL</label>
+        <select id="upCell"><option value="audience">Audience end</option><option value="scoring">Scoring-table end</option></select>
+      </div>
+
+      <h3>Routine</h3>
+      <ol class="steps" id="steps"></ol>
+
+      <h3>Time <span id="timeText" style="text-transform:none;letter-spacing:0"></span></h3>
+      <div class="timebar"><div id="timeFill"></div></div>
+      <ul class="msgs" id="msgs"></ul>
+    </div>
+
+    <div class="tab" id="tab-code">
+      <div class="row">
+        <label>Coordinates</label>
+        <span class="seg" id="coordSeg">
+          <button data-c="field" title="Field coordinates: origin at the field center">Field</button>
+          <button data-c="relative" title="Start at (0,0) facing 0, like the current autos">Start = (0,0)</button>
+        </span>
+      </div>
+      <p class="hint" id="coordHint"></p>
+      <div class="row">
+        <span class="seg" id="codeSeg"><button data-k="red">Red</button><button data-k="blue">Blue</button></span>
+        <span class="sp" style="flex:1"></span>
+        <button id="btnCopy">Copy</button>
+        <button id="btnDownload" class="primary">Download .java</button>
+      </div>
+      <p class="hint" id="fileHint"></p>
+      <textarea class="code" id="code" readonly spellcheck="false"></textarea>
+      <ul class="msgs" id="codeMsgs"></ul>
+    </div>
+
+    <div class="tab" id="tab-settings">
+      <h3>Robot</h3>
+      <div class="grid2">
+        <label for="sLen">Length (in, front to back)</label><input type="number" id="sLen" step="0.5" min="6" max="18">
+        <label for="sWid">Width (in)</label><input type="number" id="sWid" step="0.5" min="6" max="18">
+        <label for="sShooter">Shooter faces</label>
+        <select id="sShooter"><option value="back">Back (intake in front)</option><option value="front">Front</option></select>
+      </div>
+      <h3>Time estimate</h3>
+      <div class="grid2">
+        <label for="sSpin">Flywheel spin-up (s)</label><input type="number" id="sSpin" step="0.1" min="0">
+        <label for="sFeed">Shoot: feed + requeue (s)</label><input type="number" id="sFeed" step="0.1" min="0">
+        <label for="sIntake">Intake / shooter on, off (s)</label><input type="number" id="sIntake" step="0.1" min="0">
+        <label for="sVel">Max speed (in/s)</label><input type="number" id="sVel" step="1" min="1">
+        <label for="sAcc">Accel (in/s&sup2;)</label><input type="number" id="sAcc" step="1" min="1">
+        <label for="sDec">Decel (in/s&sup2;)</label><input type="number" id="sDec" step="1" min="1">
+        <label for="sAng">Max turn (deg/s)</label><input type="number" id="sAng" step="5" min="10">
+      </div>
+      <p class="hint">Speed limits match <code>MecanumDrive.PARAMS</code> (maxWheelVel 50, maxProfileAccel 50,
+        minProfileAccel -30, maxAngVel &pi;). Shoot (<code>Shoot_Auto()</code>) waits until the flywheels are at
+        the ready RPM, feeds for <code>Feed_Launch_ms</code> (1.5 s), then requeues for <code>Feed_Requeue_ms</code> (0.75 s).
+        Spin-up is the time from Shooter on until the flywheels reach the ready RPM; measure it on the robot
+        (the code gives up waiting after <code>Spinup_Timeout_ms</code> = 2 s).</p>
+      <h3>Driving the virtual robot</h3>
+      <div class="grid2">
+        <label for="sDrive">Keyboard speed (in/s)</label><input type="number" id="sDrive" step="5" min="5">
+        <label for="sFrame">W/A/S/D move</label>
+        <select id="sFrame"><option value="field">Up/left on screen</option><option value="robot">Forward/left for the robot</option></select>
+        <label for="sSnap">Snap when dragging</label>
+        <select id="sSnap"><option value="1">1 in, 5&deg;</option><option value="0">Off</option></select>
+      </div>
+      <h3>Field image (optional)</h3>
+      <p class="hint">Load a top-down picture of the field (cropped to the inside of the walls, audience at the bottom).
+        It is drawn under the path.</p>
+      <div class="row">
+        <button id="btnBg">Load image</button><button id="btnBgClear">Remove</button>
+        <label for="sBgOp">Opacity</label><input type="range" id="sBgOp" min="0" max="1" step="0.05">
+        <input type="file" id="fileBg" accept="image/*" hidden>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-help">
+      <h3>Drive the robot</h3>
+      <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows move, <kbd>Q</kbd>/<kbd>E</kbd> turn,
+        hold <kbd>Shift</kbd> for slow. Or drag the robot; drag the dot in front of it to turn.
+        Double-click the field to jump the robot there. Click the field first so it has keyboard focus.</p>
+      <h3>Build the routine</h3>
+      <p><kbd>Enter</kbd> adds a waypoint where the robot is. <kbd>R</kbd>/<kbd>X</kbd> shooter (flywheels) on/off,
+        <kbd>Space</kbd> shoot, <kbd>I</kbd>/<kbd>O</kbd> intake on/off, <kbd>T</kbd> wait,
+        <kbd>F</kbd> aims the shooter at our upward CELL.</p>
+      <p>Shoot runs the feeder, which pushes the balls into the flywheels. Turn the shooter on at a waypoint
+        before the shooting spot so the flywheels are at speed when the robot arrives. If the shooter is off,
+        Shoot spins it up first and waits. The flywheels stay on after a shot until Shooter off.</p>
+      <p>
+        New steps go after the selected step. Click a step to select it (the robot jumps there);
+        <kbd>U</kbd> moves the selected waypoint to the robot. Drag numbered dots on the field to move waypoints.
+        <kbd>Delete</kbd> removes the selected step. <kbd>P</kbd> plays the routine.</p>
+      <h3>Field coordinates</h3>
+      <p>Inches, origin at the field center, seen from the audience: +x toward the blue alliance wall (right),
+        +y away from the audience. Heading 0 faces +x, positive is counterclockwise. The robot's front is its intake.</p>
+      <h3>Rules it checks</h3>
+      <p>Start (G304): touching the wall, on your side (red columns A-C, blue D-F), not in the LOADING ZONE,
+        not touching a FLOWER. During AUTO: stays on your side (G402), stays inside the walls,
+        avoids the HIVE frame legs and FLOWERS. End: PARK means partly in your LOADING ZONE.</p>
+      <h3>Both alliances</h3>
+      <p>The field is rotationally symmetric, so the other alliance's routine is this one rotated 180&deg;
+        about the center. The Code tab writes both files.</p>
+      <p class="hint">Field layout is from the BIOBUZZ Competition Manual TU02 figures (&plusmn;1 in).
+        The HIVE drawing is approximate and the HIVE is overhead, so it is not checked for collisions.</p>
+    </div>
+  </aside>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================================
+// Field geometry (inches). Origin at the field center, seen from the audience:
+// +x toward the blue alliance wall (right), +y away from the audience (up).
+// From the BIOBUZZ Competition Manual TU02, Figures 9-2 to 9-17 and 10-2.
+// ============================================================================
+const HALF = 72;                  // the field is 144 x 144 in
+const TILE = 24;
+
+const FIELD = {
+  // LOADING ZONES: 23 in along the wall, 11 in deep (Fig 9-3)
+  loading: {
+    red:  { x0: -72, x1: -61, y0: 24.5, y1: 47.5 },
+    blue: { x0: 61,  x1: 72,  y0: -47.5, y1: -24.5 },
+  },
+  // GARDENS: 23 x 2 in strips in opposite corners (Fig 9-2)
+  garden: {
+    red:  { x0: -72, x1: -49, y0: -72, y1: -70 },
+    blue: { x0: 49,  x1: 72,  y0: 70,  y1: 72 },
+  },
+  // FLOWERS sit on the walls at tile seams (Fig 9-4)
+  flowers: [
+    { x: -24, y: 68.5 }, { x: 24, y: -68.5 }, { x: -68.5, y: -24 }, { x: 68.5, y: 24 },
+  ],
+  flowerR: 3.5,
+  // HIVE frame: 49.46 wide (x) by 38.95 deep (y). Its two A-frame legs stand at x = +/-24.7.
+  frameLegs: [
+    { x0: -25.7, x1: -23.7, y0: -19.5, y1: 19.5 },
+    { x0: 23.7,  x1: 25.7,  y0: -19.5, y1: 19.5 },
+  ],
+  // HIVES hang from the frame (overhead). CELL centers ~15.4 in from the pivot.
+  hive: {
+    red:  { x0: -24.2, x1: -0.7 },
+    blue: { x0: 0.7,   x1: 24.2 },
+    cellY: 15.4, cellDepth: 18, y0: -25.5, y1: 25.5,
+  },
+};
+
+// Center of a CELL (where to aim). end = 'audience' (y < 0) or 'scoring' (y > 0)
+function cellCenter(alliance, end) {
+  const h = FIELD.hive[alliance];
+  return { x: (h.x0 + h.x1) / 2, y: end === 'audience' ? -FIELD.hive.cellY : FIELD.hive.cellY };
+}
+
+// At the start of a match the CELL that points at a FLOWER is down (Section 10.3.1),
+// so red starts with its audience CELL up and blue with its scoring CELL up.
+const DEFAULT_UP = { red: 'audience', blue: 'scoring' };
+
+// Existing autos in TeamCode/.../autos, so we can warn about overwriting them
+const EXISTING_AUTOS = ['RedAutoLaunch', 'BlueAutoLaunch', 'RedAutoPark', 'BlueAutoPark'];
+
+// ============================================================================
+// Small math helpers
+// ============================================================================
+const DEG = Math.PI / 180;
+const r1 = v => Math.round(v * 10) / 10;
+function normDeg(d) { d = ((d + 180) % 360 + 360) % 360 - 180; return d === -180 ? 180 : d; }
+function angDiff(a, b) { return normDeg(b - a); }          // shortest signed turn from a to b
+function other(a) { return a === 'red' ? 'blue' : 'red'; }
+
+// Rotate a pose 180 degrees about the field center: the other alliance's version
+function mirrorPose(p) { return { x: -p.x, y: -p.y, h: normDeg(p.h + 180) }; }
+
+// Robot footprint as 4 corners. x forward (length), y left (width).
+function robotPoly(p, L, W) {
+  const c = Math.cos(p.h * DEG), s = Math.sin(p.h * DEG);
+  return [[L / 2, W / 2], [-L / 2, W / 2], [-L / 2, -W / 2], [L / 2, -W / 2]]
+    .map(([a, b]) => ({ x: p.x + a * c - b * s, y: p.y + a * s + b * c }));
+}
+function rectPoly(r) {
+  return [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }];
+}
+// Separating axis test for two convex polygons
+function polysOverlap(a, b) {
+  for (const poly of [a, b]) {
+    for (let i = 0; i < poly.length; i++) {
+      const p1 = poly[i], p2 = poly[(i + 1) % poly.length];
+      const nx = p2.y - p1.y, ny = p1.x - p2.x;
+      let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
+      for (const q of a) { const d = q.x * nx + q.y * ny; amin = Math.min(amin, d); amax = Math.max(amax, d); }
+      for (const q of b) { const d = q.x * nx + q.y * ny; bmin = Math.min(bmin, d); bmax = Math.max(bmax, d); }
+      if (amax <= bmin + 1e-9 || bmax <= amin + 1e-9) return false;
+    }
+  }
+  return true;
+}
+function flowerPoly(f) { const r = FIELD.flowerR; return rectPoly({ x0: f.x - r, x1: f.x + r, y0: f.y - r, y1: f.y + r }); }
+
+// Trapezoid motion profile: distance d, max speed v, accel a, decel dc.
+function profile(d, v, a, dc) {
+  if (d <= 1e-9) return { T: 0, pos: () => 0 };
+  let vp = v, ta = v / a, td = v / dc, da = v * v / (2 * a), dd = v * v / (2 * dc), tc;
+  if (da + dd > d) {
+    vp = Math.sqrt(2 * d * a * dc / (a + dc));
+    ta = vp / a; td = vp / dc; da = vp * vp / (2 * a); dd = vp * vp / (2 * dc); tc = 0;
+  } else {
+    tc = (d - da - dd) / v;
+  }
+  const T = ta + tc + td;
+  return {
+    T,
+    pos(t) {
+      if (t <= 0) return 0;
+      if (t >= T) return d;
+      if (t < ta) return 0.5 * a * t * t;
+      if (t < ta + tc) return da + vp * (t - ta);
+      const u = T - t; return d - 0.5 * dc * u * u;
+    },
+  };
+}
+
+// ============================================================================
+// Routine model
+// ============================================================================
+// steps: { type: 'move', x, y, h } | { type: 'shoot' } | { type: 'intakeOn' } |
+//        { type: 'intakeOff' } | { type: 'shooterOn' } | { type: 'shooterOff' } | { type: 'wait', s }
+function defaultStart(alliance) {
+  // Back against the alliance wall, facing the center, between the FLOWER and the LOADING ZONE
+  const p = { x: -63, y: 0, h: 0 };
+  return alliance === 'red' ? p : mirrorPose(p);
+}
+function newRoutine(alliance = 'red') {
+  return { name: 'Launch', alliance, upCell: DEFAULT_UP[alliance], start: defaultStart(alliance), steps: [] };
+}
+
+// The pose the robot is at when step i begins (after all moves before it)
+function poseBefore(routine, i) {
+  let p = routine.start;
+  for (let k = 0; k < i && k < routine.steps.length; k++) if (routine.steps[k].type === 'move') p = routine.steps[k];
+  return { x: p.x, y: p.y, h: p.h };
+}
+
+// Rotate the whole routine to the other alliance
+function mirrorRoutine(routine) {
+  const a = other(routine.alliance);
+  return {
+    ...routine,
+    alliance: a,
+    upCell: routine.upCell === 'audience' ? 'scoring' : 'audience',
+    start: mirrorPose(routine.start),
+    steps: routine.steps.map(s => s.type === 'move' ? { ...s, ...mirrorPose(s) } : { ...s }),
+  };
+}
+
+// Heading that points the shooter at our upward CELL from point p
+function aimHeading(routine, p, shooter) {
+  const c = cellCenter(routine.alliance, routine.upCell);
+  const toCell = Math.atan2(c.y - p.y, c.x - p.x) / DEG;
+  return normDeg(shooter === 'back' ? toCell + 180 : toCell);
+}
+function shotInfo(routine, p, shooter) {
+  const c = cellCenter(routine.alliance, routine.upCell);
+  const dist = Math.hypot(c.x - p.x, c.y - p.y);
+  const err = angDiff(aimHeading(routine, p, shooter), p.h);
+  return { dist, err };
+}
+
+// ============================================================================
+// Timeline: how long each step takes, and where the robot is at time t
+// ============================================================================
+function buildTimeline(routine, cfg) {
+  const segs = [];
+  let t = 0, p = { ...routine.start }, intake = false;
+  let shooterOnAt = null;                  // time the flywheels were turned on, null = off
+  routine.steps.forEach((s, i) => {
+    let seg;
+    if (s.type === 'move') {
+      const d = Math.hypot(s.x - p.x, s.y - p.y);
+      const dh = angDiff(p.h, s.h);
+      const tr = profile(d, cfg.maxVel, cfg.accel, cfg.decel);
+      const rot = profile(Math.abs(dh), cfg.maxAngVel, cfg.maxAngVel, cfg.maxAngVel);
+      const T = Math.max(tr.T, rot.T);
+      seg = { i, type: 'move', t0: t, T, from: { ...p }, to: { x: s.x, y: s.y, h: s.h }, d, dh, tr, rot };
+      p = { x: s.x, y: s.y, h: s.h };
+    } else {
+      let T, spinWait = 0;
+      if (s.type === 'shoot') {
+        // Wait for the flywheels to reach speed, then feed. Shoot turns them on if they are off.
+        if (shooterOnAt === null) { spinWait = cfg.spinup; shooterOnAt = t; }
+        else spinWait = Math.max(0, shooterOnAt + cfg.spinup - t);
+        T = spinWait + cfg.feedTime;
+      } else if (s.type === 'wait') {
+        T = Math.max(0, +s.s || 0);
+      } else {
+        T = cfg.intakeTime;
+        if (s.type === 'shooterOn' && shooterOnAt === null) shooterOnAt = t;
+        if (s.type === 'shooterOff') shooterOnAt = null;
+      }
+      if (s.type === 'intakeOn') intake = true;
+      if (s.type === 'intakeOff') intake = false;
+      seg = { i, type: s.type, t0: t, T, at: { ...p }, intake, spinWait };
+    }
+    segs.push(seg);
+    t += seg.T;
+  });
+  return { segs, total: t };
+}
+
+function poseAtTime(routine, tl, t) {
+  let p = { ...routine.start }, intake = false, shooter = false, active = null;
+  for (const seg of tl.segs) {
+    if (t < seg.t0) break;
+    const local = t - seg.t0;
+    if (seg.type === 'move') {
+      const done = local >= seg.T;
+      let f;
+      if (done) f = 1;
+      else if (seg.d > 1e-6) f = seg.tr.pos(local * (seg.tr.T / seg.T || 0)) / seg.d;
+      else f = seg.rot.T > 0 ? seg.rot.pos(local * (seg.rot.T / seg.T)) / Math.abs(seg.dh) : 1;
+      p = { x: seg.from.x + (seg.to.x - seg.from.x) * f, y: seg.from.y + (seg.to.y - seg.from.y) * f,
+            h: normDeg(seg.from.h + seg.dh * f) };
+      if (!done) { active = seg; break; }
+    } else {
+      if (seg.type === 'intakeOn') intake = true;
+      if (seg.type === 'intakeOff') intake = false;
+      if (seg.type === 'shooterOn' || seg.type === 'shoot') shooter = true;
+      if (seg.type === 'shooterOff') shooter = false;
+      if (local < seg.T) { active = seg; break; }
+    }
+  }
+  return { p, intake, shooter, active };
+}
+
+// ============================================================================
+// Rule checks
+// ============================================================================
+function checkRoutine(routine, cfg) {
+  const msgs = [];
+  const L = cfg.len, W = cfg.wid, a = routine.alliance;
+  const lz = FIELD.loading[a];
+  const sideOk = poly => a === 'red' ? poly.every(q => q.x <= 0.5) : poly.every(q => q.x >= -0.5);
+  const inField = poly => poly.every(q => Math.abs(q.x) <= HALF + 0.05 && Math.abs(q.y) <= HALF + 0.05);
+
+  // Start (G304)
+  const sp = robotPoly(routine.start, L, W);
+  if (!inField(sp)) msgs.push(['err', 'Start: the robot is outside the walls.']);
+  const touching = sp.some(q => Math.abs(q.x) >= HALF - 0.5 || Math.abs(q.y) >= HALF - 0.5);
+  if (!touching) msgs.push(['err', 'Start: the robot must touch the field wall (G304.C).']);
+  if (!sideOk(sp)) msgs.push(['err', `Start: the robot must be fully on the ${a} side (G304.A).`]);
+  if (polysOverlap(sp, rectPoly(lz))) msgs.push(['err', 'Start: the robot may not be in the LOADING ZONE (G304.E).']);
+  if (FIELD.flowers.some(f => polysOverlap(sp, flowerPoly(f)))) msgs.push(['err', 'Start: the robot may not touch a FLOWER (G304.D).']);
+
+  // Path: sample every ~1.5 in along each move
+  const warned = new Set();
+  const warnOnce = (key, kind, text) => { if (!warned.has(key)) { warned.add(key); msgs.push([kind, text]); } };
+  let p = { ...routine.start };
+  routine.steps.forEach((s, i) => {
+    if (s.type !== 'move') return;
+    const d = Math.hypot(s.x - p.x, s.y - p.y), dh = angDiff(p.h, s.h);
+    const n = Math.max(1, Math.ceil(Math.max(d / 1.5, Math.abs(dh) / 5)));
+    for (let k = 1; k <= n; k++) {
+      const f = k / n;
+      const q = { x: p.x + (s.x - p.x) * f, y: p.y + (s.y - p.y) * f, h: p.h + dh * f };
+      const poly = robotPoly(q, L, W);
+      if (!inField(poly)) warnOnce('wall' + i, 'err', `Step ${i + 1}: the robot hits the wall. (Turning needs about ${Math.ceil(Math.hypot(L, W) / 2)} in from the wall to its center.)`);
+      if (!sideOk(poly)) warnOnce('side' + i, 'warn', `Step ${i + 1}: crosses onto the ${other(a)} side. Risky in AUTO (G402).`);
+      if (FIELD.frameLegs.some(r => polysOverlap(poly, rectPoly(r)))) warnOnce('leg' + i, 'warn', `Step ${i + 1}: hits a HIVE frame leg.`);
+      if (FIELD.flowers.some(f => polysOverlap(poly, flowerPoly(f)))) warnOnce('fl' + i, 'warn', `Step ${i + 1}: hits a FLOWER.`);
+    }
+    p = { x: s.x, y: s.y, h: s.h };
+  });
+
+  // Shots: aim and range
+  routine.steps.forEach((s, i) => {
+    if (s.type !== 'shoot') return;
+    const info = shotInfo(routine, poseBefore(routine, i), cfg.shooter);
+    if (Math.abs(info.err) > 8)
+      msgs.push(['warn', `Step ${i + 1}: shooter is ${Math.abs(info.err).toFixed(0)}° off the CELL. Select the waypoint before it and press F, then U.`]);
+  });
+  const tlc = buildTimeline(routine, cfg);
+  let on = false;
+  routine.steps.forEach((s, i) => {
+    if (s.type === 'shooterOn') on = true;
+    if (s.type === 'shooterOff') on = false;
+    if (s.type === 'shoot') {
+      const w = tlc.segs[i].spinWait;
+      if (!on) msgs.push(['info', `Step ${i + 1}: the shooter is off, so Shoot spins it up first (about ${w.toFixed(1)} s). Add Shooter on at an earlier waypoint to save time.`]);
+      else if (w > 0.05) msgs.push(['info', `Step ${i + 1}: waits about ${w.toFixed(1)} s for the flywheels. Turn the shooter on earlier to save time.`]);
+      on = true;
+    }
+  });
+  if (routine.steps.some(s => s.type === 'intakeOff'))
+    msgs.push(['info', 'Intake off needs Intake_auto_Stop() in Intake.java (not in the code yet).']);
+
+  // End: PARK and time
+  const end = robotPoly(poseBefore(routine, routine.steps.length), L, W);
+  const tl = buildTimeline(routine, cfg);
+  if (tl.total > 30) msgs.push(['err', `About ${tl.total.toFixed(1)} s: longer than the 30 s AUTO.`]);
+  if (routine.steps.length) {
+    if (polysOverlap(end, rectPoly(lz))) msgs.push(['ok', 'Ends partly in the LOADING ZONE: PARK.']);
+    else msgs.push(['info', 'Does not end in the LOADING ZONE (no PARK points).']);
+  }
+  if (!msgs.some(m => m[0] === 'err' || m[0] === 'warn') && routine.steps.length) msgs.unshift(['ok', 'No rule problems found.']);
+  return msgs;
+}
+
+// ============================================================================
+// Java code generation
+// ============================================================================
+function className(routine, alliance) {
+  let base = (routine.name || 'Auto').replace(/[^A-Za-z0-9 _]/g, ' ').split(/[\s_]+/).filter(Boolean)
+    .map(w => w[0].toUpperCase() + w.slice(1)).join('');
+  if (!base) base = 'Routine';
+  if (!/^Auto/.test(base)) base = 'Auto' + base;
+  return (alliance === 'red' ? 'Red' : 'Blue') + base;
+}
+const f1 = v => { const r = r1(v); return Number.isInteger(r) ? r.toFixed(1) : String(r); };
+function hdeg(h) { const r = Math.round(normDeg(h) * 10) / 10; return Number.isInteger(r) ? String(r) : String(r); }
+
+function generateJava(routineIn, alliance, mode) {
+  const routine = routineIn.alliance === alliance ? routineIn : mirrorRoutine(routineIn);
+  const cls = className(routine, alliance);
+  const s0 = routine.start;
+  // Convert a field pose to the output frame
+  const conv = p => {
+    if (mode === 'field') return { x: p.x, y: p.y, h: normDeg(p.h) };
+    const c = Math.cos(-s0.h * DEG), s = Math.sin(-s0.h * DEG), dx = p.x - s0.x, dy = p.y - s0.y;
+    return { x: dx * c - dy * s, y: dx * s + dy * c, h: normDeg(p.h - s0.h) };
+  };
+  const b = conv(s0);
+  const lines = [];
+  let prev = b, n = 0;
+  routine.steps.forEach((st, i) => {
+    const tag = `// ${i + 1}`;
+    if (st.type === 'move') {
+      const q = conv(st);
+      const moved = Math.hypot(q.x - prev.x, q.y - prev.y) > 0.05;
+      const turned = Math.abs(angDiff(prev.h, q.h)) > 0.05;
+      if (moved) lines.push(`.strafeToLinearHeading(new Vector2d(${f1(q.x)}, ${f1(q.y)}), Math.toRadians(${hdeg(q.h)})) ${tag}`);
+      else if (turned) lines.push(`.turnTo(Math.toRadians(${hdeg(q.h)})) ${tag} turn in place`);
+      else lines.push(`${tag} (no move: same pose as before)`);
+      prev = q;
+    } else if (st.type === 'shoot') {
+      lines.push(`.stopAndAdd(robot.actuatorcontrol.launchgamepeace.Shoot_Auto()) ${tag} shoot (feeder)`);
+    } else if (st.type === 'shooterOn') {
+      lines.push(`.stopAndAdd(robot.actuatorcontrol.launchgamepeace.Shooter_On_Auto()) ${tag} shooter on`);
+    } else if (st.type === 'shooterOff') {
+      lines.push(`.stopAndAdd(robot.actuatorcontrol.launchgamepeace.Shooter_Off_Auto()) ${tag} shooter off`);
+    } else if (st.type === 'intakeOn') {
+      lines.push(`.stopAndAdd(robot.actuatorcontrol.intake.Intake_auto()) ${tag} intake on`);
+    } else if (st.type === 'intakeOff') {
+      lines.push(`.stopAndAdd(robot.actuatorcontrol.intake.Intake_auto_Stop()) ${tag} intake off (add Intake_auto_Stop to Intake.java)`);
+    } else if (st.type === 'wait') {
+      lines.push(`.waitSeconds(${Math.max(0, +st.s || 0)}) ${tag} wait`);
+    }
+    n++;
+  });
+  if (!lines.some(l => l.startsWith('.'))) lines.push('.waitSeconds(0.01) // nothing to do yet');
+
+  const startText = describeStart(routine);
+  const saved = JSON.stringify({ v: 1, ...routineIn });
+  const ind = ' '.repeat(16);
+  return `package org.firstinspires.ftc.teamcode.autos;
+
+import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.Vector2d;
+import com.acmerobotics.roadrunner.ftc.Actions;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+
+import org.firstinspires.ftc.teamcode.Robot;
+import org.firstinspires.ftc.teamcode.drivetrain.MecanumDrive;
+
+// Generated by tools/auton-creator/index.html from the routine "${routine.name}".
+// To change it, open this file in the Auton Creator, edit, and generate again.
+// Start: ${startText}
+// Coordinates: ${mode === 'field'
+    ? 'field inches, origin at the field center, +x toward the blue wall, +y away from the audience.'
+    : 'inches from the start pose, +x = robot forward (intake), +y = robot left.'}
+@Autonomous(name="${cls}", group="Robot")
+public final class ${cls} extends LinearOpMode {
+    @Override
+    public void runOpMode() throws InterruptedException {
+        Pose2d beginPose = new Pose2d(${f1(b.x)}, ${f1(b.y)}, Math.toRadians(${hdeg(b.h)}));
+        MecanumDrive drive = new MecanumDrive(hardwareMap, beginPose);
+
+        Robot robot = new Robot(this, ${alliance === 'red'});
+
+        waitForStart();
+        /* -------------------------------------------------------------------------------------- */
+
+        drive.localizer.setPose(beginPose);
+        Actions.runBlocking(drive.actionBuilder(beginPose)
+${lines.map(l => ind + l).join('\n')}
+                .build());
+    }
+}
+// AUTON-CREATOR ${saved}
+`;
+}
+
+// Plain-language placement for the drive team
+function describeStart(routine) {
+  const s = routine.start, poly = robotPoly(s, settings.len, settings.wid);
+  const walls = [];
+  if (poly.some(q => q.x <= -HALF + 0.5)) walls.push('red alliance wall');
+  if (poly.some(q => q.x >= HALF - 0.5)) walls.push('blue alliance wall');
+  if (poly.some(q => q.y <= -HALF + 0.5)) walls.push('audience wall');
+  if (poly.some(q => q.y >= HALF - 0.5)) walls.push('scoring-table wall');
+  const facing = ['the blue wall', 'the scoring-table wall', 'the red wall', 'the audience'][Math.round(((normDeg(s.h) + 360) % 360) / 90) % 4];
+  const col = 'ABCDEF'[Math.min(5, Math.max(0, Math.floor((s.x + HALF) / TILE)))];
+  const row = Math.min(6, Math.max(1, Math.floor((s.y + HALF) / TILE) + 1));
+  return `field (${f1(s.x)}, ${f1(s.y)}) heading ${hdeg(s.h)} deg, tile ${col}${row}, ` +
+    (walls.length ? `touching the ${walls.join(' and ')}, ` : '') + `intake facing ${facing}.`;
+}
+
+// ============================================================================
+// App state, persistence, undo
+// ============================================================================
+const DEFAULT_SETTINGS = {
+  len: 18, wid: 18, shooter: 'back', spinup: 1.5, feedTime: 2.6, intakeTime: 0.2,
+  maxVel: 50, accel: 50, decel: 30, maxAngVel: 180,
+  driveSpeed: 30, driveFrame: 'field', snap: 1, coordMode: 'field', codeView: 'red', bgOpacity: 0.6,
+};
+let settings = { ...DEFAULT_SETTINGS };
+let routine = newRoutine('red');
+let cursor = { ...routine.start };       // the robot you drive
+let selected = -1;                       // selected step index, -1 = none
+let undoStack = [], redoStack = [];
+let bgImage = null;
+let play = null;                         // { t0, tl } while playing
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem('autonCreator.settings') || 'null');
+    if (s) settings = { ...DEFAULT_SETTINGS, ...s };
+    const r = JSON.parse(localStorage.getItem('autonCreator.routine') || 'null');
+    if (r && r.start && Array.isArray(r.steps)) routine = r;
+    const bg = localStorage.getItem('autonCreator.bg');
+    if (bg) setBg(bg, false);
+  } catch (e) { /* storage unavailable: start fresh */ }
+  cursor = poseBefore(routine, routine.steps.length);
+}
+function persist() {
+  try {
+    localStorage.setItem('autonCreator.settings', JSON.stringify(settings));
+    localStorage.setItem('autonCreator.routine', JSON.stringify(routine));
+  } catch (e) { /* ignore */ }
+}
+function snapshot() { undoStack.push(JSON.stringify(routine)); if (undoStack.length > 200) undoStack.shift(); redoStack = []; }
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(routine)); routine = JSON.parse(undoStack.pop()); fixSel(); changed(); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(routine)); routine = JSON.parse(redoStack.pop()); fixSel(); changed(); }
+function fixSel() { if (selected >= routine.steps.length) selected = routine.steps.length - 1; }
+
+// ============================================================================
+// Editing actions
+// ============================================================================
+function addStep(type) {
+  snapshot();
+  let st;
+  if (type === 'move') st = { type, x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) };
+  else if (type === 'wait') st = { type, s: 0.5 };
+  else st = { type };
+  // A shot or intake step happens where the robot is. If the robot was driven away
+  // from the last waypoint, add that waypoint first.
+  const at = selected >= 0 ? selected + 1 : routine.steps.length;
+  const here = poseBefore(routine, at);
+  const moved = Math.hypot(here.x - cursor.x, here.y - cursor.y) > 0.3 || Math.abs(angDiff(here.h, cursor.h)) > 0.5;
+  let idx = at;
+  if (type !== 'move' && moved) {
+    routine.steps.splice(idx, 0, { type: 'move', x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) });
+    idx++;
+  }
+  routine.steps.splice(idx, 0, st);
+  selected = idx;
+  changed();
+}
+function deleteSelected() {
+  if (selected < 0) return;
+  snapshot();
+  routine.steps.splice(selected, 1);
+  selected = Math.min(selected, routine.steps.length - 1);
+  changed();
+}
+function moveStep(i, d) {
+  const j = i + d;
+  if (j < 0 || j >= routine.steps.length) return;
+  snapshot();
+  [routine.steps[i], routine.steps[j]] = [routine.steps[j], routine.steps[i]];
+  selected = j;
+  changed();
+}
+function select(i) {
+  selected = i;
+  if (i >= 0) {
+    const st = routine.steps[i];
+    cursor = st.type === 'move' ? { x: st.x, y: st.y, h: st.h } : poseBefore(routine, i);
+  }
+  renderSteps(); draw();
+}
+function updateSelected() {
+  if (selected < 0 || routine.steps[selected].type !== 'move') return;
+  snapshot();
+  Object.assign(routine.steps[selected], { x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) });
+  changed();
+}
+function setStartToCursor() {
+  snapshot();
+  routine.start = { x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) };
+  changed();
+}
+function aim() {
+  cursor.h = r1(aimHeading(routine, cursor, settings.shooter));
+  draw();
+}
+function setAlliance(a) {
+  if (a === routine.alliance) return;
+  snapshot();
+  routine = mirrorRoutine(routine);
+  cursor = mirrorPose(cursor);
+  settings.codeView = a;
+  changed();
+}
+
+// ============================================================================
+// Canvas drawing
+// ============================================================================
+const canvas = document.getElementById('field');
+const ctx = canvas.getContext('2d');
+let view = { scale: 4, ox: 0, oy: 0 };      // px per inch, screen origin of field (0,0)
+const VIEW_HALF = 86;                        // inches shown each side of center
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const r = canvas.getBoundingClientRect();
+  canvas.width = Math.max(100, r.width * dpr);
+  canvas.height = Math.max(100, r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  view.scale = Math.min(r.width, r.height) / (2 * VIEW_HALF);
+  view.ox = r.width / 2; view.oy = r.height / 2;
+  draw();
+}
+const sx = x => view.ox + x * view.scale;
+const sy = y => view.oy - y * view.scale;
+const toField = (px, py) => ({ x: (px - view.ox) / view.scale, y: (view.oy - py) / view.scale });
+
+function fillRect(r, color) { ctx.fillStyle = color; ctx.fillRect(sx(r.x0), sy(r.y1), (r.x1 - r.x0) * view.scale, (r.y1 - r.y0) * view.scale); }
+function strokeRect(r, color, w = 2) { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.strokeRect(sx(r.x0), sy(r.y1), (r.x1 - r.x0) * view.scale, (r.y1 - r.y0) * view.scale); }
+function poly(points, fill, stroke, w = 1.5) {
+  ctx.beginPath();
+  points.forEach((q, i) => i ? ctx.lineTo(sx(q.x), sy(q.y)) : ctx.moveTo(sx(q.x), sy(q.y)));
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); }
+}
+function text(t, x, y, color, size = 11, align = 'center', base = 'middle') {
+  ctx.fillStyle = color; ctx.font = `600 ${size}px system-ui, sans-serif`; ctx.textAlign = align; ctx.textBaseline = base;
+  ctx.fillText(t, sx(x), sy(y));
+}
+
+function drawField() {
+  const r = canvas.getBoundingClientRect();
+  ctx.fillStyle = '#101216'; ctx.fillRect(0, 0, r.width, r.height);
+
+  // Alliance areas (outside the field)
+  fillRect({ x0: -84, x1: -72, y0: -48.5, y1: 48.5 }, 'rgba(229,72,77,.35)');
+  fillRect({ x0: 72, x1: 84, y0: -48.5, y1: 48.5 }, 'rgba(62,140,240,.35)');
+  text('RED', -78, 0, '#ffb3b5', 11);
+  text('BLUE', 78, 0, '#b8d4ff', 11);
+  text('AUDIENCE', 0, -79, '#9aa1b2', 11);
+  text('SCORING TABLE SIDE', 0, 79, '#6b7280', 10);
+
+  // Tiles
+  fillRect({ x0: -HALF, x1: HALF, y0: -HALF, y1: HALF }, '#585d66');
+  for (let c = 0; c < 6; c++) for (let rr = 0; rr < 6; rr++) {
+    if ((c + rr) % 2) fillRect({ x0: -HALF + c * TILE, x1: -HALF + (c + 1) * TILE, y0: -HALF + rr * TILE, y1: -HALF + (rr + 1) * TILE }, '#5f646e');
+  }
+  if (bgImage) {
+    ctx.globalAlpha = settings.bgOpacity;
+    ctx.drawImage(bgImage, sx(-HALF), sy(HALF), 2 * HALF * view.scale, 2 * HALF * view.scale);
+    ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+  for (let k = -2; k <= 2; k++) {
+    ctx.beginPath(); ctx.moveTo(sx(k * TILE), sy(-HALF)); ctx.lineTo(sx(k * TILE), sy(HALF)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(-HALF), sy(k * TILE)); ctx.lineTo(sx(HALF), sy(k * TILE)); ctx.stroke();
+  }
+  // Tile labels: columns A-F, rows 1-6
+  for (let c = 0; c < 6; c++) text('ABCDEF'[c], -HALF + c * TILE + TILE / 2, -HALF - 2.6, '#9aa1b2', 10);
+  for (let rr = 0; rr < 6; rr++) text(String(rr + 1), -HALF - 2.6, -HALF + rr * TILE + TILE / 2, '#9aa1b2', 10);
+
+  // Center line: red side / blue side during AUTO
+  ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(sx(0), sy(-HALF)); ctx.lineTo(sx(0), sy(HALF)); ctx.stroke(); ctx.setLineDash([]);
+
+  // Tape: LOADING ZONES and GARDENS
+  for (const a of ['red', 'blue']) {
+    const col = a === 'red' ? '#e5484d' : '#3e8cf0';
+    const lz = FIELD.loading[a];
+    fillRect(lz, a === 'red' ? 'rgba(229,72,77,.18)' : 'rgba(62,140,240,.18)');
+    strokeRect(lz, col, Math.max(1.5, view.scale * 1));
+    fillRect(FIELD.garden[a], col);
+  }
+  text('LOADING', FIELD.loading.red.x0 + 5.5, 36, '#ffb3b5', 8);
+  text('LOADING', FIELD.loading.blue.x0 + 5.5, -36, '#b8d4ff', 8);
+
+  // Perimeter wall
+  ctx.strokeStyle = '#1b1d22'; ctx.lineWidth = Math.max(3, view.scale * 1.2);
+  ctx.strokeRect(sx(-HALF), sy(HALF), 2 * HALF * view.scale, 2 * HALF * view.scale);
+
+  // FLOWERS
+  for (const f of FIELD.flowers) {
+    ctx.beginPath(); ctx.arc(sx(f.x), sy(f.y), FIELD.flowerR * view.scale, 0, 2 * Math.PI);
+    ctx.fillStyle = '#e8c547'; ctx.fill(); ctx.strokeStyle = '#6b5a12'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // HIVE frame legs and HIVES (overhead)
+  for (const leg of FIELD.frameLegs) fillRect(leg, '#c9ced8');
+  ctx.strokeStyle = 'rgba(232,197,71,.8)'; ctx.lineWidth = Math.max(2, view.scale * 1.2);
+  ctx.beginPath(); ctx.moveTo(sx(-24.7), sy(0)); ctx.lineTo(sx(24.7), sy(0)); ctx.stroke();
+  for (const a of ['red', 'blue']) {
+    const h = FIELD.hive[a], col = a === 'red' ? '229,72,77' : '62,140,240';
+    const up = a === routine.alliance ? routine.upCell : null;
+    for (const end of ['audience', 'scoring']) {
+      const c = cellCenter(a, end), d = FIELD.hive.cellDepth / 2;
+      const r = { x0: h.x0, x1: h.x1, y0: c.y - d, y1: c.y + d };
+      fillRect(r, `rgba(${col},${up === end ? 0.55 : 0.22})`);
+      strokeRect(r, `rgba(${col},.95)`, up === end ? 2.5 : 1.2);
+      if (up === end) text('UP', c.x, c.y, '#fff', 10);
+    }
+  }
+}
+
+function drawRobot(p, opts = {}) {
+  const L = settings.len, W = settings.wid;
+  const pts = robotPoly(p, L, W);
+  poly(pts, opts.fill || 'rgba(242,178,51,.25)', opts.stroke || '#f2b233', opts.w || 2);
+  // Front (intake) edge
+  const c = Math.cos(p.h * DEG), s = Math.sin(p.h * DEG);
+  const fr = [pts[0], pts[3]];
+  if (opts.shooter) {
+    // Shooter side edge glows when the flywheels are on
+    const rear = settings.shooter === 'back' ? [pts[1], pts[2]] : [pts[0], pts[3]];
+    ctx.strokeStyle = '#ff7b54'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(sx(rear[0].x), sy(rear[0].y)); ctx.lineTo(sx(rear[1].x), sy(rear[1].y)); ctx.stroke();
+  }
+  ctx.strokeStyle = opts.intake ? '#3fb950' : (opts.frontColor || '#ffffff'); ctx.lineWidth = opts.intake ? 4 : 3;
+  ctx.beginPath(); ctx.moveTo(sx(fr[0].x), sy(fr[0].y)); ctx.lineTo(sx(fr[1].x), sy(fr[1].y)); ctx.stroke();
+  // Heading arrow
+  if (!opts.ghost) {
+    ctx.strokeStyle = opts.stroke || '#f2b233'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(sx(p.x), sy(p.y)); ctx.lineTo(sx(p.x + c * L * 0.45), sy(p.y + s * L * 0.45)); ctx.stroke();
+  }
+  return { c, s };
+}
+
+function drawAimLine(p, color, dash = true) {
+  const dir = (settings.shooter === 'back' ? p.h + 180 : p.h) * DEG;
+  const len = 200;
+  const ex = p.x + Math.cos(dir) * settings.len / 2, ey = p.y + Math.sin(dir) * settings.len / 2;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(sx(-HALF), sy(HALF), 2 * HALF * view.scale, 2 * HALF * view.scale); ctx.clip();
+  if (dash) ctx.setLineDash([4, 5]);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(sx(ex), sy(ey)); ctx.lineTo(sx(ex + Math.cos(dir) * len), sy(ey + Math.sin(dir) * len)); ctx.stroke();
+  ctx.restore();
+}
+
+const TYPE_COLOR = { move: '#cfd5e2', shoot: '#f2b233', intakeOn: '#3fb950', intakeOff: '#8b93a5', wait: '#b48ead',
+  shooterOn: '#ff7b54', shooterOff: '#a0522d' };
+
+function drawRoutine() {
+  // Path line
+  const pts = [routine.start, ...routine.steps.filter(s => s.type === 'move')];
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+  ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(sx(q.x), sy(q.y)) : ctx.moveTo(sx(q.x), sy(q.y))); ctx.stroke();
+
+  // Start robot
+  drawRobot(routine.start, { fill: 'rgba(255,255,255,.12)', stroke: '#ffffff', ghost: true });
+  text('START', routine.start.x, routine.start.y, '#fff', 9);
+
+  // Ghost robots at waypoints
+  routine.steps.forEach((s, i) => {
+    if (s.type !== 'move') return;
+    drawRobot(s, { fill: i === selected ? 'rgba(242,178,51,.18)' : 'rgba(255,255,255,.05)',
+      stroke: i === selected ? '#f2b233' : 'rgba(255,255,255,.35)', w: 1, ghost: true, frontColor: 'rgba(255,255,255,.6)' });
+  });
+
+  // Action markers stack beside the pose they happen at
+  const stacks = new Map();
+  routine.steps.forEach((s, i) => {
+    const p = s.type === 'move' ? s : poseBefore(routine, i);
+    const key = `${r1(p.x)},${r1(p.y)}`;
+    const k = stacks.get(key) || 0; stacks.set(key, k + 1);
+    if (s.type === 'shoot') drawAimLine(p, 'rgba(242,178,51,.8)');
+    const off = s.type === 'move' ? 0 : 5.5 * k;
+    const mx = p.x + (s.type === 'move' ? 0 : 6), my = p.y + (s.type === 'move' ? 0 : 6 - off + 5.5);
+    const rad = Math.max(7, view.scale * 2.2);
+    ctx.beginPath(); ctx.arc(sx(mx), sy(my), rad, 0, 2 * Math.PI);
+    ctx.fillStyle = TYPE_COLOR[s.type]; ctx.fill();
+    ctx.lineWidth = i === selected ? 3 : 1; ctx.strokeStyle = i === selected ? '#fff' : '#111'; ctx.stroke();
+    text(String(i + 1), mx, my, '#111', Math.max(9, rad * 0.95));
+    s._mx = mx; s._my = my;    // remember for clicks (not saved)
+  });
+}
+
+function drawCursor() {
+  const playing = play ? poseAtTime(routine, play.tl, play.t) : null;
+  if (playing) {
+    drawRobot(playing.p, { fill: 'rgba(63,185,80,.25)', stroke: '#3fb950', intake: playing.intake, shooter: playing.shooter });
+    if (playing.active && playing.active.type === 'shoot') drawAimLine(playing.p, '#f2b233', false);
+    return;
+  }
+  drawAimLine(cursor, 'rgba(242,178,51,.45)');
+  drawRobot(cursor, {});
+  // Rotate handle in front of the robot
+  const h = rotHandle();
+  ctx.beginPath(); ctx.arc(sx(h.x), sy(h.y), 6, 0, 2 * Math.PI);
+  ctx.fillStyle = '#f2b233'; ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+function rotHandle() {
+  const d = settings.len / 2 + 7;
+  return { x: cursor.x + Math.cos(cursor.h * DEG) * d, y: cursor.y + Math.sin(cursor.h * DEG) * d };
+}
+
+function draw() {
+  if (!canvas.width) return;
+  drawField();
+  drawRoutine();
+  drawCursor();
+  renderStatus();
+}
+
+function renderStatus() {
+  const p = play ? poseAtTime(routine, play.tl, play.t).p : cursor;
+  const info = shotInfo(routine, p, settings.shooter);
+  const col = 'ABCDEF'[Math.min(5, Math.max(0, Math.floor((p.x + HALF) / TILE)))];
+  const row = Math.min(6, Math.max(1, Math.floor((p.y + HALF) / TILE) + 1));
+  const el = document.getElementById('status');
+  el.innerHTML = `Robot <b>x ${p.x.toFixed(1)}</b> <b>y ${p.y.toFixed(1)}</b> <b>h ${normDeg(p.h).toFixed(1)}&deg;</b>
+    <span>tile ${col}${row}</span>
+    <span>to ${routine.alliance} ${routine.upCell} CELL: <b>${info.dist.toFixed(0)} in</b>, aim off <b>${Math.abs(info.err).toFixed(0)}&deg;</b></span>
+    ${play ? `<span>playing <b>${play.t.toFixed(1)} s</b> / ${play.tl.total.toFixed(1)} s</span>` : ''}`;
+}
+
+// ============================================================================
+// Side panel rendering
+// ============================================================================
+const $ = id => document.getElementById(id);
+const LABEL = { move: 'Waypoint', shoot: 'Shoot', intakeOn: 'Intake on', intakeOff: 'Intake off', wait: 'Wait',
+  shooterOn: 'Shooter on', shooterOff: 'Shooter off' };
+
+function renderSteps() {
+  const ol = $('steps');
+  const tl = buildTimeline(routine, settings);
+  const s = routine.start;
+  let html = `<li class="start"><span class="num t-start">S</span><span class="desc">Start
+    <div class="sub">x <input type="number" step="0.5" data-start="x" value="${r1(s.x)}">
+    y <input type="number" step="0.5" data-start="y" value="${r1(s.y)}">
+    h <input type="number" step="5" data-start="h" value="${r1(s.h)}"></div></span><span></span></li>`;
+  routine.steps.forEach((st, i) => {
+    let sub = '';
+    const seg = tl.segs[i];
+    if (st.type === 'move') {
+      sub = `x <input type="number" step="0.5" data-i="${i}" data-k="x" value="${st.x}">
+        y <input type="number" step="0.5" data-i="${i}" data-k="y" value="${st.y}">
+        h <input type="number" step="5" data-i="${i}" data-k="h" value="${st.h}">`;
+    } else if (st.type === 'wait') {
+      sub = `<input type="number" step="0.1" min="0" data-i="${i}" data-k="s" value="${st.s}"> s`;
+    } else if (st.type === 'shoot') {
+      const inf = shotInfo(routine, poseBefore(routine, i), settings.shooter);
+      sub = `${inf.dist.toFixed(0)} in to CELL, aim off ${Math.abs(inf.err).toFixed(0)}&deg;` +
+        (seg && seg.spinWait > 0.05 ? `, waits ${seg.spinWait.toFixed(1)} s for spin-up` : '');
+    }
+    html += `<li data-sel="${i}" class="${i === selected ? 'sel' : ''}">
+      <span class="num t-${st.type}">${i + 1}</span>
+      <span class="desc">${LABEL[st.type]} <span class="sub">${seg ? seg.T.toFixed(1) + ' s' : ''}</span>
+        <div class="sub">${sub}</div></span>
+      <span class="btns">
+        <button class="small" data-up="${i}" title="Move up">&uarr;</button>
+        <button class="small" data-down="${i}" title="Move down">&darr;</button>
+        <button class="small" data-del="${i}" title="Delete">&times;</button>
+      </span></li>`;
+  });
+  ol.innerHTML = html;
+
+  const pct = Math.min(100, tl.total / 30 * 100);
+  $('timeFill').style.width = pct + '%';
+  $('timeFill').style.background = tl.total > 30 ? 'var(--err)' : tl.total > 26 ? 'var(--warn)' : 'var(--ok)';
+  $('timeText').textContent = `${tl.total.toFixed(1)} of 30 s (estimate)`;
+
+  $('msgs').innerHTML = checkRoutine(routine, settings).map(([k, t]) => `<li class="${k}">${t}</li>`).join('');
+}
+
+function renderCode() {
+  const a = settings.codeView;
+  const code = generateJava(routine, a, settings.coordMode);
+  $('code').value = code;
+  const cls = className(routine, a);
+  $('fileHint').innerHTML = `Save as <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/autos/${cls}.java</code>`;
+  const msgs = [];
+  if (EXISTING_AUTOS.includes(cls)) msgs.push(['warn', `${cls}.java already exists in autos/. Saving over it replaces that auto. Change the name to keep both.`]);
+  if (routine.steps.some(s => s.type === 'intakeOff')) msgs.push(['warn', 'Uses Intake_auto_Stop(), which is not in Intake.java yet, so this will not compile until it is added.']);
+  $('codeMsgs').innerHTML = msgs.map(([k, t]) => `<li class="${k}">${t}</li>`).join('');
+  $('coordHint').textContent = settings.coordMode === 'field'
+    ? 'Field coordinates: every number is a real spot on the field, and the drive team places the robot at the start pose.'
+    : 'Start = (0,0): numbers are inches from where the robot starts, like the current autos. Red and blue code come out the same.';
+  for (const b of $('codeSeg').children) b.className = b.dataset.k === a ? `on ${a}` : '';
+  for (const b of $('coordSeg').children) b.className = b.dataset.c === settings.coordMode ? 'on' : '';
+}
+
+function renderHeader() {
+  $('name').value = routine.name;
+  for (const b of $('allianceSeg').children) b.className = b.dataset.a === routine.alliance ? `on ${routine.alliance}` : '';
+  $('upCell').value = routine.upCell;
+  $('btnPlay').innerHTML = play ? '&#9632; Stop' : '&#9654; Play';
+}
+
+function renderSettings() {
+  $('sLen').value = settings.len; $('sWid').value = settings.wid; $('sShooter').value = settings.shooter;
+  $('sSpin').value = settings.spinup; $('sFeed').value = settings.feedTime; $('sIntake').value = settings.intakeTime;
+  $('sVel').value = settings.maxVel; $('sAcc').value = settings.accel; $('sDec').value = settings.decel;
+  $('sAng').value = settings.maxAngVel; $('sDrive').value = settings.driveSpeed; $('sFrame').value = settings.driveFrame;
+  $('sSnap').value = String(settings.snap); $('sBgOp').value = settings.bgOpacity;
+}
+
+function changed() {
+  persist();
+  renderHeader(); renderSteps(); renderCode(); draw();
+}
+
+// ============================================================================
+// Input: keyboard driving, mouse dragging, panel controls
+// ============================================================================
+const keys = new Set();
+function typing(e) { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'); }
+
+document.addEventListener('keydown', e => {
+  if (typing(e)) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+    keys.add(k); e.preventDefault(); kick(); return;
+  }
+  if (k === 'shift') { keys.add(k); return; }
+  const act = { enter: 'move', ' ': 'shoot', t: 'wait', i: 'intakeOn', o: 'intakeOff', r: 'shooterOn', x: 'shooterOff' }[k];
+  if (act) { e.preventDefault(); addStep(act); return; }
+  if (k === 'f') { aim(); return; }
+  if (k === 'u') { updateSelected(); return; }
+  if (k === 'p') { togglePlay(); return; }
+  if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelected(); return; }
+  if (k === 'escape') { select(-1); return; }
+});
+document.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+
+let lastT = 0, looping = false;
+function kick() { if (!looping) { looping = true; lastT = performance.now(); requestAnimationFrame(tick); } }
+function tick(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  let busy = false;
+  if (play) {
+    play.t = (now - play.t0) / 1000;
+    if (play.t >= play.tl.total + 0.5) { play = null; renderHeader(); }
+    busy = true;
+  }
+  const slow = keys.has('shift') ? 0.25 : 1;
+  let fx = 0, fy = 0, turn = 0;
+  if (keys.has('w') || keys.has('arrowup')) fy += 1;
+  if (keys.has('s') || keys.has('arrowdown')) fy -= 1;
+  if (keys.has('a') || keys.has('arrowleft')) fx -= 1;
+  if (keys.has('d') || keys.has('arrowright')) fx += 1;
+  if (keys.has('q')) turn += 1;
+  if (keys.has('e')) turn -= 1;
+  if (!play && (fx || fy || turn)) {
+    const v = settings.driveSpeed * slow * dt;
+    if (settings.driveFrame === 'robot') {
+      // W = robot forward, A = robot left
+      const c = Math.cos(cursor.h * DEG), s = Math.sin(cursor.h * DEG);
+      cursor.x += (fy * c - (-fx) * s) * v; cursor.y += (fy * s + (-fx) * c) * v;
+    } else {
+      cursor.x += fx * v; cursor.y += fy * v;
+    }
+    cursor.x = Math.max(-HALF, Math.min(HALF, cursor.x));
+    cursor.y = Math.max(-HALF, Math.min(HALF, cursor.y));
+    cursor.h = normDeg(cursor.h + turn * 120 * slow * dt);
+    busy = true;
+  }
+  draw();
+  if (busy || keys.size) requestAnimationFrame(tick); else looping = false;
+}
+
+function togglePlay() {
+  if (play) { play = null; renderHeader(); draw(); return; }
+  const tl = buildTimeline(routine, settings);
+  if (!tl.segs.length) return;
+  play = { t0: performance.now(), t: 0, tl };
+  renderHeader(); kick();
+}
+
+// Mouse
+let drag = null;
+function snapV(v) { return settings.snap ? Math.round(v) : v; }
+function snapA(a) { return settings.snap ? Math.round(a / 5) * 5 : a; }
+function mousePos(e) { const r = canvas.getBoundingClientRect(); return toField(e.clientX - r.left, e.clientY - r.top); }
+
+canvas.addEventListener('mousedown', e => {
+  canvas.focus();
+  if (play) return;
+  const m = mousePos(e), tol = 9 / view.scale;
+  const h = rotHandle();
+  if (Math.hypot(m.x - h.x, m.y - h.y) < tol) { drag = { kind: 'rotate' }; return; }
+  // Step markers (top-most first)
+  for (let i = routine.steps.length - 1; i >= 0; i--) {
+    const s = routine.steps[i];
+    if (s._mx !== undefined && Math.hypot(m.x - s._mx, m.y - s._my) < tol) {
+      select(i);
+      if (s.type === 'move') { snapshot(); drag = { kind: 'step', i }; }
+      return;
+    }
+  }
+  if (polyContains(robotPoly(cursor, settings.len, settings.wid), m)) {
+    drag = { kind: 'cursor', dx: cursor.x - m.x, dy: cursor.y - m.y }; return;
+  }
+  if (polyContains(robotPoly(routine.start, settings.len, settings.wid), m)) {
+    snapshot(); drag = { kind: 'start', dx: routine.start.x - m.x, dy: routine.start.y - m.y }; return;
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const m = mousePos(e);
+  if (drag.kind === 'rotate') {
+    cursor.h = normDeg(snapA(Math.atan2(m.y - cursor.y, m.x - cursor.x) / DEG));
+  } else if (drag.kind === 'cursor') {
+    cursor.x = snapV(m.x + drag.dx); cursor.y = snapV(m.y + drag.dy);
+  } else if (drag.kind === 'step') {
+    const s = routine.steps[drag.i]; s.x = r1(snapV(m.x)); s.y = r1(snapV(m.y));
+    cursor = { x: s.x, y: s.y, h: s.h };
+    renderSteps();
+  } else if (drag.kind === 'start') {
+    routine.start.x = r1(snapV(m.x + drag.dx)); routine.start.y = r1(snapV(m.y + drag.dy));
+    renderSteps();
+  }
+  draw();
+});
+window.addEventListener('mouseup', () => {
+  if (drag && (drag.kind === 'step' || drag.kind === 'start')) changed();
+  drag = null;
+});
+canvas.addEventListener('dblclick', e => {
+  if (play) return;
+  const m = mousePos(e);
+  cursor.x = snapV(Math.max(-HALF, Math.min(HALF, m.x))); cursor.y = snapV(Math.max(-HALF, Math.min(HALF, m.y)));
+  draw();
+});
+function polyContains(pts, m) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i], b = pts[j];
+    if ((a.y > m.y) !== (b.y > m.y) && m.x < (b.x - a.x) * (m.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+// Panel events
+$('steps').addEventListener('click', e => {
+  const t = e.target.closest('button');
+  if (t) {
+    if (t.dataset.up) moveStep(+t.dataset.up, -1);
+    else if (t.dataset.down) moveStep(+t.dataset.down, 1);
+    else if (t.dataset.del) { selected = +t.dataset.del; deleteSelected(); }
+    return;
+  }
+  if (e.target.tagName === 'INPUT') return;
+  const li = e.target.closest('li[data-sel]');
+  if (li) select(+li.dataset.sel);
+});
+$('steps').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.start) { snapshot(); routine.start[t.dataset.start] = t.dataset.start === 'h' ? normDeg(+t.value) : +t.value; changed(); return; }
+  if (t.dataset.i !== undefined) {
+    snapshot();
+    const st = routine.steps[+t.dataset.i];
+    st[t.dataset.k] = t.dataset.k === 'h' ? r1(normDeg(+t.value)) : +t.value;
+    if (st.type === 'move' && +t.dataset.i === selected) cursor = { x: st.x, y: st.y, h: st.h };
+    changed();
+  }
+});
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addStep(b.dataset.add)));
+$('btnAim').onclick = aim;
+$('btnUpdate').onclick = updateSelected;
+$('btnStartHere').onclick = setStartToCursor;
+$('upCell').onchange = e => { snapshot(); routine.upCell = e.target.value; changed(); };
+$('name').oninput = e => { routine.name = e.target.value; persist(); renderCode(); };
+$('name').onchange = () => { snapshot(); changed(); };
+$('allianceSeg').onclick = e => { const a = e.target.dataset.a; if (a) setAlliance(a); };
+$('btnPlay').onclick = togglePlay;
+$('btnUndo').onclick = undo;
+$('btnRedo').onclick = redo;
+$('btnNew').onclick = () => {
+  if (routine.steps.length && !confirm('Start a new routine? (Save first if you want to keep this one.)')) return;
+  snapshot(); routine = newRoutine(routine.alliance); cursor = { ...routine.start }; selected = -1; changed();
+};
+$('btnSave').onclick = () => download(`${className(routine, routine.alliance).replace(/^(Red|Blue)/, '')}.json`,
+  JSON.stringify({ v: 1, ...routine }, (k, v) => k.startsWith('_') ? undefined : v, 2));
+$('btnOpen').onclick = () => $('fileOpen').click();
+$('fileOpen').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const txt = await f.text();
+  try {
+    let obj;
+    const m = txt.match(/\/\/ AUTON-CREATOR (\{.*\})\s*$/m);
+    obj = JSON.parse(m ? m[1] : txt);
+    if (!obj.start || !Array.isArray(obj.steps)) throw new Error('not a routine');
+    snapshot();
+    routine = { name: obj.name || 'Auto', alliance: obj.alliance === 'blue' ? 'blue' : 'red',
+      upCell: obj.upCell || DEFAULT_UP[obj.alliance === 'blue' ? 'blue' : 'red'], start: obj.start, steps: obj.steps };
+    selected = -1; cursor = poseBefore(routine, routine.steps.length); changed();
+  } catch (err) {
+    alert('That file is not a routine from the Auton Creator.');
+  }
+};
+$('codeSeg').onclick = e => { const k = e.target.dataset.k; if (k) { settings.codeView = k; persist(); renderCode(); } };
+$('coordSeg').onclick = e => { const c = e.target.dataset.c; if (c) { settings.coordMode = c; persist(); renderCode(); } };
+$('btnCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('code').value); $('btnCopy').textContent = 'Copied'; }
+  catch (e) { $('code').select(); document.execCommand('copy'); $('btnCopy').textContent = 'Copied'; }
+  setTimeout(() => $('btnCopy').textContent = 'Copy', 1200);
+};
+$('btnDownload').onclick = () => download(`${className(routine, settings.codeView)}.java`, $('code').value);
+
+function download(name, content) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// Settings
+const ZERO_OK = ['intakeTime', 'spinup', 'feedTime'];
+const bindNum = (id, key) => $(id).addEventListener('change', e => { const v = +e.target.value; if (v > 0 || (v === 0 && ZERO_OK.includes(key))) settings[key] = v; changed(); });
+bindNum('sLen', 'len'); bindNum('sWid', 'wid'); bindNum('sSpin', 'spinup'); bindNum('sFeed', 'feedTime'); bindNum('sIntake', 'intakeTime');
+bindNum('sVel', 'maxVel'); bindNum('sAcc', 'accel'); bindNum('sDec', 'decel'); bindNum('sAng', 'maxAngVel'); bindNum('sDrive', 'driveSpeed');
+$('sShooter').onchange = e => { settings.shooter = e.target.value; changed(); };
+$('sFrame').onchange = e => { settings.driveFrame = e.target.value; persist(); };
+$('sSnap').onchange = e => { settings.snap = +e.target.value; persist(); };
+$('sBgOp').oninput = e => { settings.bgOpacity = +e.target.value; persist(); draw(); };
+$('btnBg').onclick = () => $('fileBg').click();
+$('btnBgClear').onclick = () => { bgImage = null; try { localStorage.removeItem('autonCreator.bg'); } catch (e) {} draw(); };
+$('fileBg').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => setBg(rd.result, true);
+  rd.readAsDataURL(f);
+};
+function setBg(url, save) {
+  const img = new Image();
+  img.onload = () => { bgImage = img; draw(); };
+  img.src = url;
+  if (save) { try { localStorage.setItem('autonCreator.bg', url); } catch (e) { /* too big to keep */ } }
+}
+
+// Tabs
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + b.dataset.tab));
+});
+
+// Start
+load();
+renderSettings();
+new ResizeObserver(resize).observe(canvas);
+changed();
+</script>
+</body>
+</html>

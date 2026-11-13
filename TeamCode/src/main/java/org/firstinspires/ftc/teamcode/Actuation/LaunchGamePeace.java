@@ -74,6 +74,64 @@ public class LaunchGamePeace {
         };
     }
 
+    // Auto: spin up both flywheels. Finishes as soon as the power ramp is done (a few
+    // loops), so the robot drives on while the wheels come up to speed. Turn the shooter
+    // on at a waypoint before the shooting spot, and it is ready when the robot gets there.
+    public Action Shooter_On_Auto() {
+        return new Action() {
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                // Call both every loop so neither motor gets skipped.
+                boolean oneBusy = actuators.LaunchMotor_One.StartMotor();
+                boolean twoBusy = actuators.LaunchMotor_Two.StartMotor();
+                if (!oneBusy && !twoBusy) {
+                    LaunchMotorState = State.WAIT;   // flywheels running
+                    return false;
+                }
+                return true;
+            }
+        };
+    }
+
+    // Auto: stop both flywheels.
+    public Action Shooter_Off_Auto() {
+        return new Action() {
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                boolean oneBusy = actuators.LaunchMotor_One.StopMotor();
+                boolean twoBusy = actuators.LaunchMotor_Two.StopMotor();
+                if (!oneBusy && !twoBusy) {
+                    LaunchMotorState = State.SEQCOMPLETE;
+                    return false;
+                }
+                return true;
+            }
+        };
+    }
+
+    // Auto: shoot by running the feeder. The feeder is what pushes the balls into the
+    // flywheels. Waits for the ready RPM (or Spinup_Timeout_ms) first, and spins the
+    // flywheels up if Shooter_On_Auto was not used. Unlike Launch_Auto there is no extra
+    // 3 s delay, and the flywheels stay on afterward (Shooter_Off_Auto stops them).
+    public Action Shoot_Auto() {
+        return new Action() {
+            private boolean initialized = false;
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                if (!initialized) {
+                    LaunchMotorState = State.START;   // no change if the flywheels are already on
+                    state = State.START;
+                    StartState = State.START;
+                    LauncherRuntime.reset();
+                    StartSEQDelay_ms = 0;
+                    initialized = true;
+                }
+                return LaunchGamePeace_run();
+            }
+        };
+    }
+
     public void run() {
 
         // rightTriggerWasPressed() is true once per press. right_trigger_pressed is true the
