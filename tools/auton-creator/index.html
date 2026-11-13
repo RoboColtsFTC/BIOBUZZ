@@ -66,6 +66,7 @@
   ol.steps li:hover { background: var(--panel-2); }
   ol.steps li.sel { border-color: var(--accent); background: var(--panel-2); }
   ol.steps li.start { cursor: default; }
+  .chk { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; color: var(--text); cursor: pointer; }
   /* Playback: the running step fills green as it progresses; finished steps fade */
   ol.steps li.running { border-color: var(--ok);
     background: linear-gradient(to right, rgba(63,185,80,.28) var(--p, 0%), var(--panel-2) var(--p, 0%)); }
@@ -193,6 +194,8 @@
         <label for="sSpin">Flywheel spin-up (s)</label><input type="number" id="sSpin" step="0.1" min="0">
         <label for="sFeed">Shoot: feed + requeue (s)</label><input type="number" id="sFeed" step="0.1" min="0">
         <label for="sIntake">Intake / shooter on, off (s)</label><input type="number" id="sIntake" step="0.1" min="0">
+        <label for="sAimT">Camera aim (s)</label><input type="number" id="sAimT" step="0.1" min="0">
+        <label for="sAimR">Camera aim fixes up to (&deg;)</label><input type="number" id="sAimR" step="1" min="1">
         <label for="sVel">Max speed (in/s)</label><input type="number" id="sVel" step="1" min="1">
         <label for="sAcc">Accel (in/s&sup2;)</label><input type="number" id="sAcc" step="1" min="1">
         <label for="sDec">Decel (in/s&sup2;)</label><input type="number" id="sDec" step="1" min="1">
@@ -202,7 +205,10 @@
         minProfileAccel -30, maxAngVel &pi;). Shoot (<code>Shoot_Auto()</code>) waits until the flywheels are at
         the ready RPM, feeds for <code>Feed_Launch_ms</code> (1.5 s), then requeues for <code>Feed_Requeue_ms</code> (0.75 s).
         Spin-up is the time from Shooter on until the flywheels reach the ready RPM; measure it on the robot
-        (the code gives up waiting after <code>Spinup_Timeout_ms</code> = 2 s).</p>
+        (the code gives up waiting after <code>Spinup_Timeout_ms</code> = 2 s).
+        Camera aim turns the robot the rest of the way to the CELL before Shoot, using the AprilTags.
+        It only works if the planned heading is close enough for the camera to see the CELL
+        (the &ldquo;fixes up to&rdquo; angle); measure both on the robot once the command exists.</p>
       <h3>Driving the virtual robot</h3>
       <div class="grid2">
         <label for="sDrive">Keyboard speed (in/s)</label><input type="number" id="sDrive" step="5" min="5">
@@ -229,7 +235,12 @@
       <h3>Build the routine</h3>
       <p><kbd>Enter</kbd> adds a waypoint where the robot is. <kbd>R</kbd>/<kbd>X</kbd> shooter (flywheels) on/off,
         <kbd>Space</kbd> shoot, <kbd>I</kbd>/<kbd>O</kbd> intake on/off, <kbd>T</kbd> wait,
-        <kbd>F</kbd> aims the shooter at our upward CELL.</p>
+        <kbd>F</kbd> turns the robot so the shooter points at our upward CELL.</p>
+      <p>Aim happens in two parts. <kbd>F</kbd> sets the planned heading, which only has to get the CELL into the
+        camera's view. Then each Shoot with <b>camera aim</b> checked turns the rest of the way using the AprilTags,
+        right before feeding. The robot code only aims at a CELL that is facing up (it checks the AprilTag roll),
+        so if the HIVE tips during AUTO, camera aim goes for the new upward CELL, as long as the camera can see it
+        from the planned heading. The page plans for the upward CELL you pick above.</p>
       <p>Shoot runs the feeder, which pushes the balls into the flywheels. Turn the shooter on at a waypoint
         before the shooting spot so the flywheels are at speed when the robot arrives. If the shooter is off,
         Shoot spins it up first and waits. The flywheels stay on after a shot until Shooter off.</p>
@@ -303,6 +314,12 @@ function cellCenter(alliance, end) {
 // so red starts with its audience CELL up and blue with its scoring CELL up.
 const DEFAULT_UP = { red: 'audience', blue: 'scoring' };
 
+// Camera aim before a shot. Not in the robot code yet: when it is added, change this
+// line to match its name, and drop the "not in the robot code" warnings (AIM_EXISTS).
+const AIM_CALL = 'robot.Aim_Auto(drive)';
+const AIM_EXISTS = false;
+const aimOn = st => st.type === 'shoot' && st.aim !== false;   // on unless unchecked
+
 // Existing autos in TeamCode/.../autos, so we can warn about overwriting them
 const EXISTING_AUTOS = ['RedAutoLaunch', 'BlueAutoLaunch', 'RedAutoPark', 'BlueAutoPark'];
 
@@ -369,7 +386,7 @@ function profile(d, v, a, dc) {
 // ============================================================================
 // Routine model
 // ============================================================================
-// steps: { type: 'move', x, y, h } | { type: 'shoot' } | { type: 'intakeOn' } |
+// steps: { type: 'move', x, y, h } | { type: 'shoot', aim } | { type: 'intakeOn' } |
 //        { type: 'intakeOff' } | { type: 'shooterOn' } | { type: 'shooterOff' } | { type: 'wait', s }
 function defaultStart(alliance) {
   // Back against the alliance wall, facing the center, between the FLOWER and the LOADING ZONE
@@ -430,12 +447,20 @@ function buildTimeline(routine, cfg) {
       seg = { i, type: 'move', t0: t, T, from: { ...p }, to: { x: s.x, y: s.y, h: s.h }, d, dh, tr, rot };
       p = { x: s.x, y: s.y, h: s.h };
     } else {
-      let T, spinWait = 0;
+      let T, spinWait = 0, aimT = 0, aimDh = 0;
+      const at = { ...p };
       if (s.type === 'shoot') {
+        // Camera aim first: turn the rest of the way to the CELL, if it is close enough
+        // to the planned heading for the camera to see it. The flywheels keep spinning up.
+        if (aimOn(s)) {
+          aimT = cfg.aimTime;
+          const dh = angDiff(p.h, aimHeading(routine, p, cfg.shooter));
+          if (Math.abs(dh) <= cfg.aimRange) { aimDh = dh; p = { ...p, h: normDeg(p.h + dh) }; }
+        }
         // Wait for the flywheels to reach speed, then feed. Shoot turns them on if they are off.
-        if (shooterOnAt === null) { spinWait = cfg.spinup; shooterOnAt = t; }
-        else spinWait = Math.max(0, shooterOnAt + cfg.spinup - t);
-        T = spinWait + cfg.feedTime;
+        if (shooterOnAt === null) { spinWait = cfg.spinup; shooterOnAt = t + aimT; }
+        else spinWait = Math.max(0, shooterOnAt + cfg.spinup - (t + aimT));
+        T = aimT + spinWait + cfg.feedTime;
       } else if (s.type === 'wait') {
         T = Math.max(0, +s.s || 0);
       } else {
@@ -445,7 +470,7 @@ function buildTimeline(routine, cfg) {
       }
       if (s.type === 'intakeOn') intake = true;
       if (s.type === 'intakeOff') intake = false;
-      seg = { i, type: s.type, t0: t, T, at: { ...p }, intake, spinWait };
+      seg = { i, type: s.type, t0: t, T, at, intake, spinWait, aimT, aimDh };
     }
     segs.push(seg);
     t += seg.T;
@@ -468,6 +493,10 @@ function poseAtTime(routine, tl, t) {
             h: normDeg(seg.from.h + seg.dh * f) };
       if (!done) { active = seg; break; }
     } else {
+      if (seg.aimDh) {
+        const f = seg.aimT > 0 ? Math.min(1, local / seg.aimT) : 1;
+        p = { ...seg.at, h: normDeg(seg.at.h + seg.aimDh * (f * f * (3 - 2 * f))) };
+      }
       if (seg.type === 'intakeOn') intake = true;
       if (seg.type === 'intakeOff') intake = false;
       if (seg.type === 'shooterOn' || seg.type === 'shoot') shooter = true;
@@ -521,8 +550,11 @@ function checkRoutine(routine, cfg) {
   routine.steps.forEach((s, i) => {
     if (s.type !== 'shoot') return;
     const info = shotInfo(routine, poseBefore(routine, i), cfg.shooter);
-    if (Math.abs(info.err) > 8)
-      msgs.push(['warn', `Step ${i + 1}: shooter is ${Math.abs(info.err).toFixed(0)}° off the CELL. Select the waypoint before it and press F, then U.`]);
+    const off = Math.abs(info.err).toFixed(0);
+    if (aimOn(s) && Math.abs(info.err) > cfg.aimRange)
+      msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL, more than camera aim can fix (${cfg.aimRange}°). Select the waypoint before it and press F, then U.`]);
+    else if (!aimOn(s) && Math.abs(info.err) > 8)
+      msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL and camera aim is off. Select the waypoint before it and press F, then U.`]);
   });
   const tlc = buildTimeline(routine, cfg);
   let on = false;
@@ -538,6 +570,8 @@ function checkRoutine(routine, cfg) {
   });
   if (routine.steps.some(s => s.type === 'intakeOff'))
     msgs.push(['info', 'Intake off needs Intake_auto_Stop() in Intake.java (not in the code yet).']);
+  if (!AIM_EXISTS && routine.steps.some(aimOn))
+    msgs.push(['info', 'Camera aim needs an Aim_Auto() command in the robot code (not in the code yet).']);
 
   // End: PARK and time
   const end = robotPoly(poseBefore(routine, routine.steps.length), L, W);
@@ -588,6 +622,8 @@ function generateJava(routineIn, alliance, mode) {
       else lines.push(`${tag} (no move: same pose as before)`);
       prev = q;
     } else if (st.type === 'shoot') {
+      if (aimOn(st)) lines.push(`.stopAndAdd(${AIM_CALL}) ${tag} camera aim at the upward CELL` +
+        (AIM_EXISTS ? '' : ' (add Aim_Auto to the robot code)'));
       lines.push(`.stopAndAdd(robot.actuatorcontrol.launchgamepeace.Shoot_Auto()) ${tag} shoot (feeder)`);
     } else if (st.type === 'shooterOn') {
       lines.push(`.stopAndAdd(robot.actuatorcontrol.launchgamepeace.Shooter_On_Auto()) ${tag} shooter on`);
@@ -665,7 +701,7 @@ function describeStart(routine) {
 // App state, persistence, undo
 // ============================================================================
 const DEFAULT_SETTINGS = {
-  len: 18, wid: 18, shooter: 'back', spinup: 1.5, feedTime: 2.6, intakeTime: 0.2,
+  len: 18, wid: 18, shooter: 'back', spinup: 1.5, feedTime: 2.6, intakeTime: 0.2, aimTime: 0.5, aimRange: 20,
   maxVel: 50, accel: 50, decel: 30, maxAngVel: 180,
   driveSpeed: 30, driveFrame: 'field', snap: 1, coordMode: 'field', codeView: 'red', bgOpacity: 0.6,
 };
@@ -1041,7 +1077,8 @@ function renderSteps() {
       sub = `<input type="number" step="0.1" min="0" data-i="${i}" data-k="s" value="${st.s}"> s`;
     } else if (st.type === 'shoot') {
       const inf = shotInfo(routine, poseBefore(routine, i), settings.shooter);
-      sub = `${inf.dist.toFixed(0)} in to CELL, aim off ${Math.abs(inf.err).toFixed(0)}&deg;` +
+      sub = `<label class="chk"><input type="checkbox" data-i="${i}" data-k="aim" ${aimOn(st) ? 'checked' : ''}> camera aim</label>
+        ${inf.dist.toFixed(0)} in to CELL, planned aim off ${Math.abs(inf.err).toFixed(0)}&deg;` +
         (seg && seg.spinWait > 0.05 ? `, waits ${seg.spinWait.toFixed(1)} s for spin-up` : '');
     }
     html += `<li data-sel="${i}" class="${i === selected ? 'sel' : ''}">
@@ -1074,6 +1111,7 @@ function renderCode() {
   const msgs = [];
   if (EXISTING_AUTOS.includes(cls)) msgs.push(['warn', `${cls}.java already exists in autos/. Saving over it replaces that auto. Change the name to keep both.`]);
   if (routine.steps.some(s => s.type === 'intakeOff')) msgs.push(['warn', 'Uses Intake_auto_Stop(), which is not in Intake.java yet, so this will not compile until it is added.']);
+  if (!AIM_EXISTS && routine.steps.some(aimOn)) msgs.push(['warn', `Uses ${AIM_CALL} for camera aim, which is not in the robot code yet, so this will not compile until it is added. Uncheck camera aim on the shots to leave it out.`]);
   $('codeMsgs').innerHTML = msgs.map(([k, t]) => `<li class="${k}">${t}</li>`).join('');
   $('coordHint').textContent = settings.coordMode === 'field'
     ? 'Field coordinates: every number is a real spot on the field, and the drive team places the robot at the start pose.'
@@ -1092,6 +1130,7 @@ function renderHeader() {
 function renderSettings() {
   $('sLen').value = settings.len; $('sWid').value = settings.wid; $('sShooter').value = settings.shooter;
   $('sSpin').value = settings.spinup; $('sFeed').value = settings.feedTime; $('sIntake').value = settings.intakeTime;
+  $('sAimT').value = settings.aimTime; $('sAimR').value = settings.aimRange;
   $('sVel').value = settings.maxVel; $('sAcc').value = settings.accel; $('sDec').value = settings.decel;
   $('sAng').value = settings.maxAngVel; $('sDrive').value = settings.driveSpeed; $('sFrame').value = settings.driveFrame;
   $('sSnap').value = String(settings.snap); $('sBgOp').value = settings.bgOpacity;
@@ -1247,7 +1286,7 @@ $('steps').addEventListener('click', e => {
     else if (t.dataset.del) { selected = +t.dataset.del; deleteSelected(); }
     return;
   }
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.closest('label')) return;
   const li = e.target.closest('li[data-sel]');
   if (li) select(+li.dataset.sel);
 });
@@ -1257,7 +1296,7 @@ $('steps').addEventListener('change', e => {
   if (t.dataset.i !== undefined) {
     snapshot();
     const st = routine.steps[+t.dataset.i];
-    st[t.dataset.k] = t.dataset.k === 'h' ? r1(normDeg(+t.value)) : +t.value;
+    st[t.dataset.k] = t.type === 'checkbox' ? t.checked : t.dataset.k === 'h' ? r1(normDeg(+t.value)) : +t.value;
     if (st.type === 'move' && +t.dataset.i === selected) cursor = { x: st.x, y: st.y, h: st.h };
     changed();
   }
@@ -1314,8 +1353,9 @@ function download(name, content) {
 }
 
 // Settings
-const ZERO_OK = ['intakeTime', 'spinup', 'feedTime'];
+const ZERO_OK = ['intakeTime', 'spinup', 'feedTime', 'aimTime'];
 const bindNum = (id, key) => $(id).addEventListener('change', e => { const v = +e.target.value; if (v > 0 || (v === 0 && ZERO_OK.includes(key))) settings[key] = v; changed(); });
+bindNum('sAimT', 'aimTime'); bindNum('sAimR', 'aimRange');
 bindNum('sLen', 'len'); bindNum('sWid', 'wid'); bindNum('sSpin', 'spinup'); bindNum('sFeed', 'feedTime'); bindNum('sIntake', 'intakeTime');
 bindNum('sVel', 'maxVel'); bindNum('sAcc', 'accel'); bindNum('sDec', 'decel'); bindNum('sAng', 'maxAngVel'); bindNum('sDrive', 'driveSpeed');
 $('sShooter').onchange = e => { settings.shooter = e.target.value; changed(); };
