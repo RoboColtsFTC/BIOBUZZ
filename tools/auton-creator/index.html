@@ -217,7 +217,14 @@
         <label for="sWid">Width (in)</label><input type="number" id="sWid" step="0.5" min="6" max="18">
         <label for="sShooter">Shooters face Road Runner</label>
         <select id="sShooter"><option value="back">&minus;x (our robot)</option><option value="front">+x</option></select>
+        <label for="sKeepIn" title="Under the frame, on the side toward the field center. The legs lean in, so the top of the robot hits first.">HIVE leg keepout, inside (in)</label>
+        <input type="number" id="sKeepIn" step="0.5" min="0" max="24">
+        <label for="sKeepOut" title="Outside the frame and past the ends of the leg. The foot sticks out along the floor, so the bottom of the robot hits first.">HIVE leg keepout, outside (in)</label>
+        <input type="number" id="sKeepOut" step="0.5" min="0" max="24">
       </div>
+      <p class="hint">Inside is under the frame, toward the field center. Outside is away from the center and past
+        the ends of the leg. Both are guesses until the team tests them: drive next to a leg and enter how close is
+        safe. 0 turns that side off; hitting the leg itself is always flagged.</p>
       <h3>Time estimate</h3>
       <div class="grid2">
         <label for="sSpin">Flywheel spin-up (s)</label><input type="number" id="sSpin" step="0.1" min="0">
@@ -297,7 +304,7 @@
       <h3>Rules it checks</h3>
       <p>Start (G304): touching the wall, on your side (red columns A-C, blue D-F), not in the LOADING ZONE,
         not touching a FLOWER. During AUTO: stays on your side (G402), stays inside the walls,
-        avoids the HIVE frame legs and FLOWERS. End: PARK means partly in your LOADING ZONE.</p>
+        avoids the HIVE frame legs (and the inside and outside keepouts around them, set in Settings) and FLOWERS. End: PARK means partly in your LOADING ZONE.</p>
       <h3>Both alliances</h3>
       <p>The field is rotationally symmetric, so the other alliance's routine is this one rotated 180&deg;
         about the center. The Code tab writes both files.</p>
@@ -346,6 +353,17 @@ const FIELD = {
     cellY: 15.4, cellDepth: 18, y0: -25.5, y1: 25.5,
   },
 };
+
+// The keepout around a HIVE leg: kin on the side toward the field center (under the frame),
+// kout away from the center and past both ends. inner is just the inside strip.
+function keepoutRect(r, kin, kout) {
+  const left = (r.x0 + r.x1) / 2 > 0;          // the blue-side leg's inside faces -x
+  const y0 = r.y0 - kout, y1 = r.y1 + kout;
+  return {
+    all: { x0: r.x0 - (left ? kin : kout), x1: r.x1 + (left ? kout : kin), y0, y1 },
+    inner: left ? { x0: r.x0 - kin, x1: r.x0, y0: r.y0, y1: r.y1 } : { x0: r.x1, x1: r.x1 + kin, y0: r.y0, y1: r.y1 },
+  };
+}
 
 // Center of a CELL (where to aim). end = 'audience' (y < 0) or 'scoring' (y > 0)
 function cellCenter(alliance, end) {
@@ -611,15 +629,25 @@ function checkRoutine(routine, cfg) {
     if (s.type !== 'move') return;
     const d = Math.hypot(s.x - p.x, s.y - p.y), dh = angDiff(p.h, s.h);
     const n = Math.max(1, Math.ceil(Math.max(d / 1.5, Math.abs(dh) / 5)));
+    const kin = cfg.keepIn || 0, kout = cfg.keepOut || 0;
+    const zones = FIELD.frameLegs.map(r => keepoutRect(r, kin, kout));
+    let hitLeg = false, inKeep = null;
     for (let k = 1; k <= n; k++) {
       const f = k / n;
       const q = { x: p.x + (s.x - p.x) * f, y: p.y + (s.y - p.y) * f, h: p.h + dh * f };
       const poly = robotPoly(q, L, W);
       if (!inField(poly)) warnOnce('wall' + i, 'err', `Step ${i + 1}: the robot hits the wall. (Turning needs about ${Math.ceil(Math.hypot(L, W) / 2)} in from the wall to its center.)`);
       if (!sideOk(poly)) warnOnce('side' + i, 'warn', `Step ${i + 1}: crosses onto the ${other(a)} side. Risky in AUTO (G402).`);
-      if (FIELD.frameLegs.some(r => polysOverlap(poly, rectPoly(r)))) warnOnce('leg' + i, 'warn', `Step ${i + 1}: hits a HIVE frame leg.`);
+      if (FIELD.frameLegs.some(r => polysOverlap(poly, rectPoly(r)))) hitLeg = true;
+      else for (const z of zones) {
+        if (!polysOverlap(poly, rectPoly(z.all))) continue;
+        if (kin > 0 && polysOverlap(poly, rectPoly(z.inner))) inKeep = 'inside';
+        else if (!inKeep && kout > 0) inKeep = 'outside';
+      }
       if (FIELD.flowers.some(f => polysOverlap(poly, flowerPoly(f)))) warnOnce('fl' + i, 'warn', `Step ${i + 1}: hits a FLOWER.`);
     }
+    if (hitLeg) msgs.push(['warn', `Step ${i + 1}: hits a HIVE frame leg.`]);
+    else if (inKeep) msgs.push(['warn', `Step ${i + 1}: enters the HIVE leg keepout, ${inKeep} (${inKeep === 'inside' ? kin : kout} in).`]);
     p = { x: s.x, y: s.y, h: s.h };
   });
 
@@ -811,7 +839,7 @@ function describeStart(routine) {
 // App state, persistence, undo
 // ============================================================================
 const DEFAULT_SETTINGS = {
-  len: 18, wid: 18, shooter: 'back', spinup: 1.5, feedTime: 2.6, intakeTime: 0.2, aimTime: 0.5, aimRange: 20, tipTime: 0.3,
+  len: 18, wid: 18, shooter: 'back', keepIn: 3, keepOut: 1, spinup: 1.5, feedTime: 2.6, intakeTime: 0.2, aimTime: 0.5, aimRange: 20, tipTime: 0.3,
   maxVel: 50, accel: 50, decel: 30, maxAngVel: 180,
   driveSpeed: 30, driveFrame: 'field', snap: 1, coordMode: 'field', codeView: 'red', bgOpacity: 0.6,
 };
@@ -1073,7 +1101,15 @@ function drawField() {
   }
 
   // HIVE frame legs and HIVES (overhead)
-  for (const leg of FIELD.frameLegs) fillRect(leg, '#c9ced8');
+  const kin = settings.keepIn || 0, kout = settings.keepOut || 0;
+  for (const leg of FIELD.frameLegs) {
+    if (kin > 0 || kout > 0) {
+      const z = keepoutRect(leg, kin, kout).all;
+      fillRect(z, 'rgba(248,81,73,.16)');
+      ctx.save(); ctx.setLineDash([4, 4]); strokeRect(z, 'rgba(248,81,73,.7)', 1); ctx.restore();
+    }
+    fillRect(leg, '#c9ced8');
+  }
   ctx.strokeStyle = 'rgba(232,197,71,.8)'; ctx.lineWidth = Math.max(2, view.scale * 1.2);
   ctx.beginPath(); ctx.moveTo(sx(-24.7), sy(0)); ctx.lineTo(sx(24.7), sy(0)); ctx.stroke();
   for (const a of ['red', 'blue']) {
@@ -1342,6 +1378,7 @@ function renderHeader() {
 
 function renderSettings() {
   $('sLen').value = settings.len; $('sWid').value = settings.wid; $('sShooter').value = settings.shooter;
+  $('sKeepIn').value = settings.keepIn; $('sKeepOut').value = settings.keepOut;
   $('sSpin').value = settings.spinup; $('sFeed').value = settings.feedTime; $('sIntake').value = settings.intakeTime;
   $('sAimT').value = settings.aimTime; $('sAimR').value = settings.aimRange; $('sTip').value = settings.tipTime;
   $('sVel').value = settings.maxVel; $('sAcc').value = settings.accel; $('sDec').value = settings.decel;
@@ -1583,9 +1620,9 @@ function download(name, content) {
 }
 
 // Settings
-const ZERO_OK = ['intakeTime', 'spinup', 'feedTime', 'aimTime', 'tipTime'];
+const ZERO_OK = ['intakeTime', 'spinup', 'feedTime', 'aimTime', 'tipTime', 'keepIn', 'keepOut'];
 const bindNum = (id, key) => $(id).addEventListener('change', e => { const v = +e.target.value; if (v > 0 || (v === 0 && ZERO_OK.includes(key))) settings[key] = v; changed(); });
-bindNum('sAimT', 'aimTime'); bindNum('sAimR', 'aimRange'); bindNum('sTip', 'tipTime');
+bindNum('sKeepIn', 'keepIn'); bindNum('sKeepOut', 'keepOut'); bindNum('sAimT', 'aimTime'); bindNum('sAimR', 'aimRange'); bindNum('sTip', 'tipTime');
 bindNum('sLen', 'len'); bindNum('sWid', 'wid'); bindNum('sSpin', 'spinup'); bindNum('sFeed', 'feedTime'); bindNum('sIntake', 'intakeTime');
 bindNum('sVel', 'maxVel'); bindNum('sAcc', 'accel'); bindNum('sDec', 'decel'); bindNum('sAng', 'maxAngVel'); bindNum('sDrive', 'driveSpeed');
 $('sShooter').onchange = e => { settings.shooter = e.target.value; changed(); };
