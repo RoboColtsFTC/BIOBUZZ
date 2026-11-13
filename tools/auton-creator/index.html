@@ -16,6 +16,7 @@
     --red: #e5484d;
     --blue: #3e8cf0;
     --ok: #3fb950;
+    --teal: #5fd1c9;
     --warn: #e3a008;
     --err: #f85149;
   }
@@ -66,6 +67,10 @@
   ol.steps li:hover { background: var(--panel-2); }
   ol.steps li.sel { border-color: var(--accent); background: var(--panel-2); }
   ol.steps li.start { cursor: default; }
+  ol.steps li.branch { display: block; cursor: default; padding: 8px 6px 2px; color: var(--teal); font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .05em; border-top: 1px dashed var(--line); border-radius: 0; margin-top: 4px; }
+  ol.steps li.branch:hover { background: none; }
+  .seg button.on.teal { background: var(--teal); color: #111; }
   .chk { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; color: var(--text); cursor: pointer; }
   /* Playback: the running step fills green as it progresses; finished steps fade */
   ol.steps li.running { border-color: var(--ok);
@@ -75,7 +80,7 @@
     font-weight: 700; color: #111; }
   .t-move { background: #cfd5e2; } .t-shoot { background: var(--accent); } .t-intakeOn { background: var(--ok); }
   .t-intakeOff { background: #8b93a5; }
-  .t-shooterOn { background: #ff7b54; } .t-shooterOff { background: #a0522d; } .t-wait { background: #b48ead; } .t-start { background: #fff; }
+  .t-shooterOn { background: #ff7b54; } .t-shooterOff { background: #a0522d; } .t-wait { background: #b48ead; } .t-checkTip { background: var(--teal); } .t-start { background: #fff; }
   .desc { font-variant-numeric: tabular-nums; }
   .desc .sub { color: var(--muted); font-size: 12px; }
   .desc input[type=number] { width: 58px; padding: 1px 4px; }
@@ -143,6 +148,7 @@
         <button id="btnAim" title="Turn the robot so the shooter faces our upward CELL (F)">Aim <kbd>F</kbd></button>
         <button data-add="intakeOn" title="I">+ Intake on <kbd>I</kbd></button>
         <button data-add="intakeOff" title="O">+ Intake off <kbd>O</kbd></button>
+        <button data-add="checkTip" title="Check with the camera whether our HIVE tipped, then run one of two branches (C)">+ Check tip <kbd>C</kbd></button>
       </div>
       <div class="row" style="margin-top:8px">
         <button id="btnUpdate" class="small" title="Move the selected waypoint to the robot's pose (U)">Set selected to robot <kbd>U</kbd></button>
@@ -154,6 +160,13 @@
       </div>
 
       <h3>Routine</h3>
+      <div class="row" id="branchRow" hidden>
+        <label>After Check tip, show</label>
+        <span class="seg" id="branchSeg">
+          <button data-b="main" title="Steps that run if our HIVE has not tipped">Not tipped</button>
+          <button data-b="tipped" title="Steps that run if our HIVE tipped (the other CELL is up)">Tipped</button>
+        </span>
+      </div>
       <ol class="steps" id="steps"></ol>
 
       <h3>Time <span id="timeText" style="text-transform:none;letter-spacing:0"></span></h3>
@@ -196,6 +209,7 @@
         <label for="sIntake">Intake / shooter on, off (s)</label><input type="number" id="sIntake" step="0.1" min="0">
         <label for="sAimT">Camera aim (s)</label><input type="number" id="sAimT" step="0.1" min="0">
         <label for="sAimR">Camera aim fixes up to (&deg;)</label><input type="number" id="sAimR" step="1" min="1">
+        <label for="sTip">Check tip (s)</label><input type="number" id="sTip" step="0.1" min="0">
         <label for="sVel">Max speed (in/s)</label><input type="number" id="sVel" step="1" min="1">
         <label for="sAcc">Accel (in/s&sup2;)</label><input type="number" id="sAcc" step="1" min="1">
         <label for="sDec">Decel (in/s&sup2;)</label><input type="number" id="sDec" step="1" min="1">
@@ -241,6 +255,13 @@
         right before feeding. The robot code only aims at a CELL that is facing up (it checks the AprilTag roll),
         so if the HIVE tips during AUTO, camera aim goes for the new upward CELL, as long as the camera can see it
         from the planned heading. The page plans for the upward CELL you pick above.</p>
+      <h3>Check tip</h3>
+      <p><kbd>C</kbd> adds a Check tip step. The camera looks at our HIVE and the routine splits in two:
+        the steps after Check tip run if the HIVE has <b>not</b> tipped, and a second list runs if it <b>has</b>
+        tipped, so you can drive around and shoot at the other CELL. Use <b>Not tipped / Tipped</b> above the step
+        list to see and edit each branch. Steps before Check tip are shared by both. Put Check tip where the camera
+        can see both CELLS of our HIVE. A routine can have one Check tip. Play runs the branch you are looking at,
+        and the other branch is drawn faded on the field.</p>
       <p>Shoot runs the feeder, which pushes the balls into the flywheels. Turn the shooter on at a waypoint
         before the shooting spot so the flywheels are at speed when the robot arrives. If the shooter is off,
         Shoot spins it up first and waits. The flywheels stay on after a shot until Shooter off.</p>
@@ -320,6 +341,12 @@ const AIM_CALL = 'robot.Aim_Auto(drive)';
 const AIM_EXISTS = false;
 const aimOn = st => st.type === 'shoot' && st.aim !== false;   // on unless unchecked
 
+// Check tip. Not in the robot code yet: when it is added, change this to match its name
+// and set TIP_EXISTS. It gets the SDK cluster name of the CELL that is up if our HIVE tipped,
+// and should return true if the camera sees that CELL facing up.
+const TIP_CALL = cluster => `robot.IsCellUp("${cluster}")`;
+const TIP_EXISTS = false;
+
 // Existing autos in TeamCode/.../autos, so we can warn about overwriting them
 const EXISTING_AUTOS = ['RedAutoLaunch', 'BlueAutoLaunch', 'RedAutoPark', 'BlueAutoPark'];
 
@@ -333,7 +360,7 @@ function angDiff(a, b) { return normDeg(b - a); }          // shortest signed tu
 function other(a) { return a === 'red' ? 'blue' : 'red'; }
 
 // Rotate a pose 180 degrees about the field center: the other alliance's version
-function mirrorPose(p) { return { x: -p.x, y: -p.y, h: normDeg(p.h + 180) }; }
+function mirrorPose(p) { return { x: -p.x, y: -p.y, h: Math.round(normDeg(p.h + 180) * 1e6) / 1e6 }; }   // round off float noise
 
 // Robot footprint as 4 corners. x forward (length), y left (width).
 function robotPoly(p, L, W) {
@@ -387,7 +414,10 @@ function profile(d, v, a, dc) {
 // Routine model
 // ============================================================================
 // steps: { type: 'move', x, y, h } | { type: 'shoot', aim } | { type: 'intakeOn' } |
-//        { type: 'intakeOff' } | { type: 'shooterOn' } | { type: 'shooterOff' } | { type: 'wait', s }
+//        { type: 'intakeOff' } | { type: 'shooterOn' } | { type: 'shooterOff' } | { type: 'wait', s } |
+//        { type: 'checkTip' }
+// A routine has at most one Check tip. The steps after it in routine.steps run if our HIVE
+// has NOT tipped; routine.tipped holds the steps that run if it HAS tipped.
 function defaultStart(alliance) {
   // Back against the alliance wall, facing the center, between the FLOWER and the LOADING ZONE
   const p = { x: -63, y: 0, h: 0 };
@@ -413,19 +443,38 @@ function mirrorRoutine(routine) {
     upCell: routine.upCell === 'audience' ? 'scoring' : 'audience',
     start: mirrorPose(routine.start),
     steps: routine.steps.map(s => s.type === 'move' ? { ...s, ...mirrorPose(s) } : { ...s }),
+    tipped: routine.tipped && routine.tipped.map(s => s.type === 'move' ? { ...s, ...mirrorPose(s) } : { ...s }),
   };
 }
 
+const flipCell = c => c === 'audience' ? 'scoring' : 'audience';
+const checkIndex = r => r.steps.findIndex(s => s.type === 'checkTip');
+const allSteps = r => [...r.steps, ...(r.tipped || [])];
+const clusterName = (alliance, cell) => `${alliance.toUpperCase()} ${cell.toUpperCase()}`;
+
+// One branch as a single path: the shared steps, Check tip, then that branch's steps.
+function branchView(r, b) {
+  const c = checkIndex(r);
+  if (c < 0 || b !== 'tipped') return r;
+  return { ...r, steps: [...r.steps.slice(0, c + 1), ...(r.tipped || [])], branch: 'tipped' };
+}
+
+// Our upward CELL when step i runs (default: after the last step). In the tipped
+// branch it is the other CELL of our HIVE.
+function upCellAt(r, i = r.steps.length) {
+  return r.branch === 'tipped' && i > checkIndex(r) ? flipCell(r.upCell) : r.upCell;
+}
+
 // Heading that points the shooter at our upward CELL from point p
-function aimHeading(routine, p, shooter) {
-  const c = cellCenter(routine.alliance, routine.upCell);
+function aimHeading(routine, p, shooter, i) {
+  const c = cellCenter(routine.alliance, upCellAt(routine, i));
   const toCell = Math.atan2(c.y - p.y, c.x - p.x) / DEG;
   return normDeg(shooter === 'back' ? toCell + 180 : toCell);
 }
-function shotInfo(routine, p, shooter) {
-  const c = cellCenter(routine.alliance, routine.upCell);
+function shotInfo(routine, p, shooter, i) {
+  const c = cellCenter(routine.alliance, upCellAt(routine, i));
   const dist = Math.hypot(c.x - p.x, c.y - p.y);
-  const err = angDiff(aimHeading(routine, p, shooter), p.h);
+  const err = angDiff(aimHeading(routine, p, shooter, i), p.h);
   return { dist, err };
 }
 
@@ -454,7 +503,7 @@ function buildTimeline(routine, cfg) {
         // to the planned heading for the camera to see it. The flywheels keep spinning up.
         if (aimOn(s)) {
           aimT = cfg.aimTime;
-          const dh = angDiff(p.h, aimHeading(routine, p, cfg.shooter));
+          const dh = angDiff(p.h, aimHeading(routine, p, cfg.shooter, i));
           if (Math.abs(dh) <= cfg.aimRange) { aimDh = dh; p = { ...p, h: normDeg(p.h + dh) }; }
         }
         // Wait for the flywheels to reach speed, then feed. Shoot turns them on if they are off.
@@ -463,6 +512,8 @@ function buildTimeline(routine, cfg) {
         T = aimT + spinWait + cfg.feedTime;
       } else if (s.type === 'wait') {
         T = Math.max(0, +s.s || 0);
+      } else if (s.type === 'checkTip') {
+        T = cfg.tipTime;
       } else {
         T = cfg.intakeTime;
         if (s.type === 'shooterOn' && shooterOnAt === null) shooterOnAt = t;
@@ -549,7 +600,7 @@ function checkRoutine(routine, cfg) {
   // Shots: aim and range
   routine.steps.forEach((s, i) => {
     if (s.type !== 'shoot') return;
-    const info = shotInfo(routine, poseBefore(routine, i), cfg.shooter);
+    const info = shotInfo(routine, poseBefore(routine, i), cfg.shooter, i);
     const off = Math.abs(info.err).toFixed(0);
     if (aimOn(s) && Math.abs(info.err) > cfg.aimRange)
       msgs.push(['warn', `Step ${i + 1}: shooter is ${off}° off the CELL, more than camera aim can fix (${cfg.aimRange}°). Select the waypoint before it and press F, then U.`]);
@@ -572,6 +623,8 @@ function checkRoutine(routine, cfg) {
     msgs.push(['info', 'Intake off needs Intake_auto_Stop() in Intake.java (not in the code yet).']);
   if (!AIM_EXISTS && routine.steps.some(aimOn))
     msgs.push(['info', 'Camera aim needs an Aim_Auto() command in the robot code (not in the code yet).']);
+  if (!TIP_EXISTS && checkIndex(routine) >= 0)
+    msgs.push(['info', 'Check tip needs an IsCellUp() command in the robot code (not in the code yet).']);
 
   // End: PARK and time
   const end = robotPoly(poseBefore(routine, routine.steps.length), L, W);
@@ -609,9 +662,11 @@ function generateJava(routineIn, alliance, mode) {
     return { x: dx * c - dy * s, y: dx * s + dy * c, h: normDeg(p.h - s0.h) };
   };
   const b = conv(s0);
+  // Builder lines for a list of steps. first = the step number of steps[0].
+  const emit = (steps, first) => {
   const lines = [];
-  let prev = b, n = 0;
-  routine.steps.forEach((st, i) => {
+  steps.forEach((st, j) => {
+    const i = first - 1 + j;
     const tag = `// ${i + 1}`;
     if (st.type === 'move') {
       const q = conv(st);
@@ -636,13 +691,43 @@ function generateJava(routineIn, alliance, mode) {
     } else if (st.type === 'wait') {
       lines.push(`.waitSeconds(${Math.max(0, +st.s || 0)}) ${tag} wait`);
     }
-    n++;
   });
   if (!lines.some(l => l.startsWith('.'))) lines.push('.waitSeconds(0.01) // nothing to do yet');
+  return lines;
+  };
+  let prev = b;
+
+  // Without Check tip: one path. With it: the shared path, then an if/else on the tip.
+  const c = checkIndex(routine);
+  const runBlock = (from, steps, first, pad) => {
+    const lines = emit(steps, first), ind = ' '.repeat(pad + 8);
+    return `${' '.repeat(pad)}Actions.runBlocking(drive.actionBuilder(${from})\n` +
+      lines.map(l => ind + l).join('\n') + `\n${ind}.build());`;
+  };
+  let body;
+  if (c < 0) {
+    body = runBlock('beginPose', routine.steps, 1, 8);
+  } else {
+    const shared = runBlock('beginPose', routine.steps.slice(0, c), 1, 8);
+    const atCheck = prev;
+    const tippedCell = flipCell(routine.upCell);
+    const tipped = runBlock('drive.localizer.getPose()', routine.tipped || [], c + 2, 12);
+    prev = atCheck;
+    const notTipped = runBlock('drive.localizer.getPose()', routine.steps.slice(c + 1), c + 2, 12);
+    body = `${shared}
+
+        // ${c + 1} Check tip: which CELL of our HIVE is up now? Each branch starts from where the robot is.
+        if (${TIP_CALL(clusterName(alliance, tippedCell))}) {${TIP_EXISTS ? '' : '   // add IsCellUp to the robot code'}
+            // Tipped: the ${clusterName(alliance, tippedCell)} CELL is up
+${tipped}
+        } else {
+            // Not tipped: the ${clusterName(alliance, routine.upCell)} CELL is still up
+${notTipped}
+        }`;
+  }
 
   const startText = describeStart(routine);
-  const saved = JSON.stringify({ v: 1, ...routineIn });
-  const ind = ' '.repeat(16);
+  const saved = JSON.stringify({ v: 1, ...routineIn }, (k, v) => k.startsWith('_') ? undefined : v);
   return `package org.firstinspires.ftc.teamcode.autos;
 
 import com.acmerobotics.roadrunner.Pose2d;
@@ -673,9 +758,7 @@ public final class ${cls} extends LinearOpMode {
         /* -------------------------------------------------------------------------------------- */
 
         drive.localizer.setPose(beginPose);
-        Actions.runBlocking(drive.actionBuilder(beginPose)
-${lines.map(l => ind + l).join('\n')}
-                .build());
+${body}
     }
 }
 // AUTON-CREATOR ${saved}
@@ -701,12 +784,24 @@ function describeStart(routine) {
 // App state, persistence, undo
 // ============================================================================
 const DEFAULT_SETTINGS = {
-  len: 18, wid: 18, shooter: 'back', spinup: 1.5, feedTime: 2.6, intakeTime: 0.2, aimTime: 0.5, aimRange: 20,
+  len: 18, wid: 18, shooter: 'back', spinup: 1.5, feedTime: 2.6, intakeTime: 0.2, aimTime: 0.5, aimRange: 20, tipTime: 0.3,
   maxVel: 50, accel: 50, decel: 30, maxAngVel: 180,
   driveSpeed: 30, driveFrame: 'field', snap: 1, coordMode: 'field', codeView: 'red', bgOpacity: 0.6,
 };
 let settings = { ...DEFAULT_SETTINGS };
 let routine = newRoutine('red');
+// The list and field show one branch after Check tip. ed is that branch as a single path
+// (see branchView). Edits go to ed.steps, and changed() splits them back into routine.
+let branch = 'main';                     // 'main' (not tipped) or 'tipped'
+let ed = routine, edBase = routine;
+function syncEd() { ed = branchView(routine, branch); edBase = routine; }
+function commitEd() {
+  if (ed === routine || edBase !== routine) return;    // nothing to copy, or routine was replaced
+  const c = checkIndex(ed), oc = checkIndex(routine);
+  if (c < 0 || oc < 0) return;
+  routine.steps = [...ed.steps.slice(0, c + 1), ...routine.steps.slice(oc + 1)];
+  routine.tipped = ed.steps.slice(c + 1);
+}
 let cursor = { ...routine.start };       // the robot you drive
 let selected = -1;                       // selected step index, -1 = none
 let undoStack = [], redoStack = [];
@@ -720,6 +815,7 @@ function load() {
     if (s) settings = { ...DEFAULT_SETTINGS, ...s };
     const r = JSON.parse(localStorage.getItem('autonCreator.routine') || 'null');
     if (r && r.start && Array.isArray(r.steps)) routine = r;
+    syncEd();
     const bg = localStorage.getItem('autonCreator.bg');
     if (bg) setBg(bg, false);
   } catch (e) { /* storage unavailable: start fresh */ }
@@ -732,60 +828,66 @@ function persist() {
   } catch (e) { /* ignore */ }
 }
 function snapshot() { undoStack.push(JSON.stringify(routine)); if (undoStack.length > 200) undoStack.shift(); redoStack = []; }
-function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(routine)); routine = JSON.parse(undoStack.pop()); fixSel(); changed(); }
-function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(routine)); routine = JSON.parse(redoStack.pop()); fixSel(); changed(); }
-function fixSel() { if (selected >= routine.steps.length) selected = routine.steps.length - 1; }
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(routine)); routine = JSON.parse(undoStack.pop()); syncEd(); fixSel(); changed(); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(routine)); routine = JSON.parse(redoStack.pop()); syncEd(); fixSel(); changed(); }
+function fixSel() { if (selected >= ed.steps.length) selected = ed.steps.length - 1; }
 
 // ============================================================================
 // Editing actions
 // ============================================================================
 function addStep(type) {
+  if (type === 'checkTip' && checkIndex(ed) >= 0) { alert('This routine already has a Check tip.'); return; }
   snapshot();
   let st;
   if (type === 'move') st = { type, x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) };
   else if (type === 'wait') st = { type, s: 0.5 };
+  else if (type === 'shoot') st = { type, aim: true };
   else st = { type };
   // A shot or intake step happens where the robot is. If the robot was driven away
   // from the last waypoint, add that waypoint first.
-  const at = selected >= 0 ? selected + 1 : routine.steps.length;
-  const here = poseBefore(routine, at);
+  const at = selected >= 0 ? selected + 1 : ed.steps.length;
+  const here = poseBefore(ed, at);
   const moved = Math.hypot(here.x - cursor.x, here.y - cursor.y) > 0.3 || Math.abs(angDiff(here.h, cursor.h)) > 0.5;
   let idx = at;
   if (type !== 'move' && moved) {
-    routine.steps.splice(idx, 0, { type: 'move', x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) });
+    ed.steps.splice(idx, 0, { type: 'move', x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) });
     idx++;
   }
-  routine.steps.splice(idx, 0, st);
+  ed.steps.splice(idx, 0, st);
   selected = idx;
   changed();
 }
 function deleteSelected() {
   if (selected < 0) return;
+  if (ed.steps[selected].type === 'checkTip') {
+    if (branch === 'tipped') { alert('Switch to "Not tipped" to delete Check tip.'); return; }
+    if ((routine.tipped || []).length && !confirm('Delete Check tip? The steps in the Tipped branch go too (Undo brings them back).')) return;
+  }
   snapshot();
-  routine.steps.splice(selected, 1);
-  selected = Math.min(selected, routine.steps.length - 1);
+  ed.steps.splice(selected, 1);
+  selected = Math.min(selected, ed.steps.length - 1);
   changed();
 }
 function moveStep(i, d) {
   const j = i + d;
-  if (j < 0 || j >= routine.steps.length) return;
+  if (j < 0 || j >= ed.steps.length) return;
   snapshot();
-  [routine.steps[i], routine.steps[j]] = [routine.steps[j], routine.steps[i]];
+  [ed.steps[i], ed.steps[j]] = [ed.steps[j], ed.steps[i]];
   selected = j;
   changed();
 }
 function select(i) {
   selected = i;
   if (i >= 0) {
-    const st = routine.steps[i];
-    cursor = st.type === 'move' ? { x: st.x, y: st.y, h: st.h } : poseBefore(routine, i);
+    const st = ed.steps[i];
+    cursor = st.type === 'move' ? { x: st.x, y: st.y, h: st.h } : poseBefore(ed, i);
   }
   renderSteps(); draw();
 }
 function updateSelected() {
-  if (selected < 0 || routine.steps[selected].type !== 'move') return;
+  if (selected < 0 || ed.steps[selected].type !== 'move') return;
   snapshot();
-  Object.assign(routine.steps[selected], { x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) });
+  Object.assign(ed.steps[selected], { x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) });
   changed();
 }
 function setStartToCursor() {
@@ -793,8 +895,13 @@ function setStartToCursor() {
   routine.start = { x: r1(cursor.x), y: r1(cursor.y), h: r1(normDeg(cursor.h)) };
   changed();
 }
+// The step a new step would follow; picks which CELL is our target (it changes after Check tip)
+function focusIndex() {
+  if (play) return playStep >= 0 ? playStep : ed.steps.length;
+  return selected >= 0 ? selected + 1 : ed.steps.length;
+}
 function aim() {
-  cursor.h = r1(aimHeading(routine, cursor, settings.shooter));
+  cursor.h = r1(aimHeading(ed, cursor, settings.shooter, focusIndex()));
   draw();
 }
 function setAlliance(a) {
@@ -904,7 +1011,7 @@ function drawField() {
   ctx.beginPath(); ctx.moveTo(sx(-24.7), sy(0)); ctx.lineTo(sx(24.7), sy(0)); ctx.stroke();
   for (const a of ['red', 'blue']) {
     const h = FIELD.hive[a], col = a === 'red' ? '229,72,77' : '62,140,240';
-    const up = a === routine.alliance ? routine.upCell : null;
+    const up = a === routine.alliance ? upCellAt(ed, focusIndex()) : null;
     for (const end of ['audience', 'scoring']) {
       const c = cellCenter(a, end), d = FIELD.hive.cellDepth / 2;
       const r = { x0: h.x0, x1: h.x1, y0: c.y - d, y1: c.y + d };
@@ -951,11 +1058,22 @@ function drawAimLine(p, color, dash = true) {
 }
 
 const TYPE_COLOR = { move: '#cfd5e2', shoot: '#f2b233', intakeOn: '#3fb950', intakeOff: '#8b93a5', wait: '#b48ead',
-  shooterOn: '#ff7b54', shooterOff: '#a0522d' };
+  shooterOn: '#ff7b54', shooterOff: '#a0522d', checkTip: '#5fd1c9' };
 
 function drawRoutine() {
+  // The other branch after Check tip, faded and dashed
+  const c = checkIndex(routine);
+  if (c >= 0) {
+    const other = branch === 'tipped' ? routine.steps.slice(c + 1) : (routine.tipped || []);
+    const opts = [poseBefore(routine, c), ...other.filter(s => s.type === 'move')];
+    ctx.save(); ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(95,209,201,.45)'; ctx.lineWidth = 2;
+    ctx.beginPath(); opts.forEach((q, i) => i ? ctx.lineTo(sx(q.x), sy(q.y)) : ctx.moveTo(sx(q.x), sy(q.y))); ctx.stroke();
+    ctx.restore();
+    other.filter(s => s.type === 'move').forEach(s => drawRobot(s, { fill: 'rgba(95,209,201,.04)',
+      stroke: 'rgba(95,209,201,.3)', w: 1, ghost: true, frontColor: 'rgba(95,209,201,.4)' }));
+  }
   // Path line
-  const pts = [routine.start, ...routine.steps.filter(s => s.type === 'move')];
+  const pts = [routine.start, ...ed.steps.filter(s => s.type === 'move')];
   ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
   ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(sx(q.x), sy(q.y)) : ctx.moveTo(sx(q.x), sy(q.y))); ctx.stroke();
 
@@ -964,7 +1082,7 @@ function drawRoutine() {
   text('START', routine.start.x, routine.start.y, '#fff', 9);
 
   // Ghost robots at waypoints
-  routine.steps.forEach((s, i) => {
+  ed.steps.forEach((s, i) => {
     if (s.type !== 'move') return;
     drawRobot(s, { fill: i === selected ? 'rgba(242,178,51,.18)' : 'rgba(255,255,255,.05)',
       stroke: i === selected ? '#f2b233' : 'rgba(255,255,255,.35)', w: 1, ghost: true, frontColor: 'rgba(255,255,255,.6)' });
@@ -972,8 +1090,8 @@ function drawRoutine() {
 
   // Action markers stack beside the pose they happen at
   const stacks = new Map();
-  routine.steps.forEach((s, i) => {
-    const p = s.type === 'move' ? s : poseBefore(routine, i);
+  ed.steps.forEach((s, i) => {
+    const p = s.type === 'move' ? s : poseBefore(ed, i);
     const key = `${r1(p.x)},${r1(p.y)}`;
     const k = stacks.get(key) || 0; stacks.set(key, k + 1);
     if (s.type === 'shoot') drawAimLine(p, 'rgba(242,178,51,.8)');
@@ -994,7 +1112,7 @@ function drawRoutine() {
 }
 
 function drawCursor() {
-  const playing = play ? poseAtTime(routine, play.tl, play.t) : null;
+  const playing = play ? poseAtTime(ed, play.tl, play.t) : null;
   if (playing) {
     drawRobot(playing.p, { fill: 'rgba(63,185,80,.25)', stroke: '#3fb950', intake: playing.intake, shooter: playing.shooter });
     if (playing.active && playing.active.type === 'shoot') drawAimLine(playing.p, '#f2b233', false);
@@ -1021,22 +1139,22 @@ function draw() {
 }
 
 function renderStatus() {
-  const p = play ? poseAtTime(routine, play.tl, play.t).p : cursor;
-  const info = shotInfo(routine, p, settings.shooter);
+  const p = play ? poseAtTime(ed, play.tl, play.t).p : cursor;
+  const fi = focusIndex(), info = shotInfo(ed, p, settings.shooter, fi);
   const col = 'ABCDEF'[Math.min(5, Math.max(0, Math.floor((p.x + HALF) / TILE)))];
   const row = Math.min(6, Math.max(1, Math.floor((p.y + HALF) / TILE) + 1));
   const el = document.getElementById('status');
   el.innerHTML = `Robot <b>x ${p.x.toFixed(1)}</b> <b>y ${p.y.toFixed(1)}</b> <b>h ${normDeg(p.h).toFixed(1)}&deg;</b>
     <span>tile ${col}${row}</span>
-    <span>to ${routine.alliance} ${routine.upCell} CELL: <b>${info.dist.toFixed(0)} in</b>, aim off <b>${Math.abs(info.err).toFixed(0)}&deg;</b></span>
+    <span>to ${routine.alliance} ${upCellAt(ed, fi)} CELL: <b>${info.dist.toFixed(0)} in</b>, aim off <b>${Math.abs(info.err).toFixed(0)}&deg;</b></span>
     ${play ? `<span>playing <b>${play.t.toFixed(1)} s</b> / ${play.tl.total.toFixed(1)} s</span>` : ''}
-    ${play && playStep >= 0 ? `<span>step <b>${playStep + 1} ${LABEL[routine.steps[playStep].type]}</b></span>` : ''}`;
+    ${play && playStep >= 0 ? `<span>step <b>${playStep + 1} ${LABEL[ed.steps[playStep].type]}</b></span>` : ''}`;
 }
 
 // Playback: mark the running step in the Steps list (green, filling as it runs),
 // fade the steps already done, and keep the running step scrolled into view.
 function markRunning() {
-  const act = play ? poseAtTime(routine, play.tl, play.t).active : null;
+  const act = play ? poseAtTime(ed, play.tl, play.t).active : null;
   const idx = act ? act.i : -1;
   const finished = play && play.t >= play.tl.total;   // the short pause after the last step
   $('steps').querySelectorAll('li[data-sel]').forEach(li => {
@@ -1056,17 +1174,17 @@ function markRunning() {
 // ============================================================================
 const $ = id => document.getElementById(id);
 const LABEL = { move: 'Waypoint', shoot: 'Shoot', intakeOn: 'Intake on', intakeOff: 'Intake off', wait: 'Wait',
-  shooterOn: 'Shooter on', shooterOff: 'Shooter off' };
+  shooterOn: 'Shooter on', shooterOff: 'Shooter off', checkTip: 'Check tip' };
 
 function renderSteps() {
   const ol = $('steps');
-  const tl = buildTimeline(routine, settings);
+  const tl = buildTimeline(ed, settings);
   const s = routine.start;
   let html = `<li class="start"><span class="num t-start">S</span><span class="desc">Start
     <div class="sub">x <input type="number" step="0.5" data-start="x" value="${r1(s.x)}">
     y <input type="number" step="0.5" data-start="y" value="${r1(s.y)}">
     h <input type="number" step="5" data-start="h" value="${r1(s.h)}"></div></span><span></span></li>`;
-  routine.steps.forEach((st, i) => {
+  ed.steps.forEach((st, i) => {
     let sub = '';
     const seg = tl.segs[i];
     if (st.type === 'move') {
@@ -1076,10 +1194,12 @@ function renderSteps() {
     } else if (st.type === 'wait') {
       sub = `<input type="number" step="0.1" min="0" data-i="${i}" data-k="s" value="${st.s}"> s`;
     } else if (st.type === 'shoot') {
-      const inf = shotInfo(routine, poseBefore(routine, i), settings.shooter);
+      const inf = shotInfo(ed, poseBefore(ed, i), settings.shooter, i);
       sub = `<label class="chk"><input type="checkbox" data-i="${i}" data-k="aim" ${aimOn(st) ? 'checked' : ''}> camera aim</label>
         ${inf.dist.toFixed(0)} in to CELL, planned aim off ${Math.abs(inf.err).toFixed(0)}&deg;` +
         (seg && seg.spinWait > 0.05 ? `, waits ${seg.spinWait.toFixed(1)} s for spin-up` : '');
+    } else if (st.type === 'checkTip') {
+      sub = `Camera checks which CELL of our HIVE is up, then runs one branch`;
     }
     html += `<li data-sel="${i}" class="${i === selected ? 'sel' : ''}">
       <span class="num t-${st.type}">${i + 1}</span>
@@ -1090,6 +1210,10 @@ function renderSteps() {
         <button class="small" data-down="${i}" title="Move down">&darr;</button>
         <button class="small" data-del="${i}" title="Delete">&times;</button>
       </span></li>`;
+    if (st.type === 'checkTip') {
+      const cell = branch === 'tipped' ? flipCell(routine.upCell) : routine.upCell;
+      html += `<li class="branch">${branch === 'tipped' ? 'If tipped' : 'If not tipped'}: the ${cell === 'audience' ? 'audience' : 'scoring-table'} end CELL is up</li>`;
+    }
   });
   ol.innerHTML = html;
   markRunning();
@@ -1097,9 +1221,30 @@ function renderSteps() {
   const pct = Math.min(100, tl.total / 30 * 100);
   $('timeFill').style.width = pct + '%';
   $('timeFill').style.background = tl.total > 30 ? 'var(--err)' : tl.total > 26 ? 'var(--warn)' : 'var(--ok)';
-  $('timeText').textContent = `${tl.total.toFixed(1)} of 30 s (estimate)`;
+  const c = checkIndex(routine);
+  if (c < 0) $('timeText').textContent = `${tl.total.toFixed(1)} of 30 s (estimate)`;
+  else {
+    const tm = buildTimeline(routine, settings).total, tt = buildTimeline(branchView(routine, 'tipped'), settings).total;
+    $('timeText').textContent = `${tl.total.toFixed(1)} of 30 s (estimate; not tipped ${tm.toFixed(1)}, tipped ${tt.toFixed(1)})`;
+  }
+  $('branchRow').hidden = c < 0;
+  for (const b of $('branchSeg').children) b.className = b.dataset.b === branch ? 'on teal' : '';
 
-  $('msgs').innerHTML = checkRoutine(routine, settings).map(([k, t]) => `<li class="${k}">${t}</li>`).join('');
+  $('msgs').innerHTML = routineMessages().map(([k, t]) => `<li class="${k}">${t}</li>`).join('');
+}
+
+// Rule messages for both branches. A message only the tipped branch has gets "If tipped:".
+function routineMessages() {
+  const main = checkRoutine(routine, settings);
+  if (checkIndex(routine) < 0) return main;
+  const seen = new Set(main.map(m => m[1]));
+  const msgs = main.filter(m => m[0] !== 'ok' || !m[1].startsWith('No rule'));
+  for (const [k, t] of checkRoutine(branchView(routine, 'tipped'), settings)) {
+    if (!seen.has(t) && !(k === 'ok' && t.startsWith('No rule'))) msgs.push([k, 'If tipped: ' + t]);
+  }
+  if (!(routine.tipped || []).length) msgs.push(['info', 'The Tipped branch is empty, so nothing runs after Check tip if the HIVE tipped. Pick "Tipped" above to plan it.']);
+  if (!msgs.some(m => m[0] === 'err' || m[0] === 'warn')) msgs.unshift(['ok', 'No rule problems found.']);
+  return msgs;
 }
 
 function renderCode() {
@@ -1110,8 +1255,9 @@ function renderCode() {
   $('fileHint').innerHTML = `Save as <code>TeamCode/src/main/java/org/firstinspires/ftc/teamcode/autos/${cls}.java</code>`;
   const msgs = [];
   if (EXISTING_AUTOS.includes(cls)) msgs.push(['warn', `${cls}.java already exists in autos/. Saving over it replaces that auto. Change the name to keep both.`]);
-  if (routine.steps.some(s => s.type === 'intakeOff')) msgs.push(['warn', 'Uses Intake_auto_Stop(), which is not in Intake.java yet, so this will not compile until it is added.']);
-  if (!AIM_EXISTS && routine.steps.some(aimOn)) msgs.push(['warn', `Uses ${AIM_CALL} for camera aim, which is not in the robot code yet, so this will not compile until it is added. Uncheck camera aim on the shots to leave it out.`]);
+  if (allSteps(routine).some(s => s.type === 'intakeOff')) msgs.push(['warn', 'Uses Intake_auto_Stop(), which is not in Intake.java yet, so this will not compile until it is added.']);
+  if (!TIP_EXISTS && checkIndex(routine) >= 0) msgs.push(['warn', `Uses ${TIP_CALL('...')} for Check tip, which is not in the robot code yet, so this will not compile until it is added.`]);
+  if (!AIM_EXISTS && allSteps(routine).some(aimOn)) msgs.push(['warn', `Uses ${AIM_CALL} for camera aim, which is not in the robot code yet, so this will not compile until it is added. Uncheck camera aim on the shots to leave it out.`]);
   $('codeMsgs').innerHTML = msgs.map(([k, t]) => `<li class="${k}">${t}</li>`).join('');
   $('coordHint').textContent = settings.coordMode === 'field'
     ? 'Field coordinates: every number is a real spot on the field, and the drive team places the robot at the start pose.'
@@ -1130,13 +1276,17 @@ function renderHeader() {
 function renderSettings() {
   $('sLen').value = settings.len; $('sWid').value = settings.wid; $('sShooter').value = settings.shooter;
   $('sSpin').value = settings.spinup; $('sFeed').value = settings.feedTime; $('sIntake').value = settings.intakeTime;
-  $('sAimT').value = settings.aimTime; $('sAimR').value = settings.aimRange;
+  $('sAimT').value = settings.aimTime; $('sAimR').value = settings.aimRange; $('sTip').value = settings.tipTime;
   $('sVel').value = settings.maxVel; $('sAcc').value = settings.accel; $('sDec').value = settings.decel;
   $('sAng').value = settings.maxAngVel; $('sDrive').value = settings.driveSpeed; $('sFrame').value = settings.driveFrame;
   $('sSnap').value = String(settings.snap); $('sBgOp').value = settings.bgOpacity;
 }
 
 function changed() {
+  commitEd();
+  if (checkIndex(routine) < 0) { branch = 'main'; delete routine.tipped; }
+  else if (!routine.tipped) routine.tipped = [];
+  syncEd(); fixSel();
   persist();
   renderHeader(); renderSteps(); renderCode(); draw();
 }
@@ -1157,7 +1307,7 @@ document.addEventListener('keydown', e => {
     keys.add(k); e.preventDefault(); kick(); return;
   }
   if (k === 'shift') { keys.add(k); return; }
-  const act = { enter: 'move', ' ': 'shoot', t: 'wait', i: 'intakeOn', o: 'intakeOff', r: 'shooterOn', x: 'shooterOff' }[k];
+  const act = { enter: 'move', ' ': 'shoot', t: 'wait', i: 'intakeOn', o: 'intakeOff', r: 'shooterOn', x: 'shooterOff', c: 'checkTip' }[k];
   if (act) { e.preventDefault(); addStep(act); return; }
   if (k === 'f') { aim(); return; }
   if (k === 'u') { updateSelected(); return; }
@@ -1207,7 +1357,7 @@ function tick(now) {
 
 function togglePlay() {
   if (play) { play = null; renderHeader(); markRunning(); draw(); return; }
-  const tl = buildTimeline(routine, settings);
+  const tl = buildTimeline(ed, settings);
   if (!tl.segs.length) return;
   play = { t0: performance.now(), t: 0, tl };
   renderHeader(); kick();
@@ -1226,8 +1376,8 @@ canvas.addEventListener('mousedown', e => {
   const h = rotHandle();
   if (Math.hypot(m.x - h.x, m.y - h.y) < tol) { drag = { kind: 'rotate' }; return; }
   // Step markers (top-most first)
-  for (let i = routine.steps.length - 1; i >= 0; i--) {
-    const s = routine.steps[i];
+  for (let i = ed.steps.length - 1; i >= 0; i--) {
+    const s = ed.steps[i];
     if (s._mx !== undefined && Math.hypot(m.x - s._mx, m.y - s._my) < tol) {
       select(i);
       if (s.type === 'move') { snapshot(); drag = { kind: 'step', i }; }
@@ -1249,7 +1399,7 @@ window.addEventListener('mousemove', e => {
   } else if (drag.kind === 'cursor') {
     cursor.x = snapV(m.x + drag.dx); cursor.y = snapV(m.y + drag.dy);
   } else if (drag.kind === 'step') {
-    const s = routine.steps[drag.i]; s.x = r1(snapV(m.x)); s.y = r1(snapV(m.y));
+    const s = ed.steps[drag.i]; s.x = r1(snapV(m.x)); s.y = r1(snapV(m.y));
     cursor = { x: s.x, y: s.y, h: s.h };
     renderSteps();
   } else if (drag.kind === 'start') {
@@ -1295,7 +1445,7 @@ $('steps').addEventListener('change', e => {
   if (t.dataset.start) { snapshot(); routine.start[t.dataset.start] = t.dataset.start === 'h' ? normDeg(+t.value) : +t.value; changed(); return; }
   if (t.dataset.i !== undefined) {
     snapshot();
-    const st = routine.steps[+t.dataset.i];
+    const st = ed.steps[+t.dataset.i];
     st[t.dataset.k] = t.type === 'checkbox' ? t.checked : t.dataset.k === 'h' ? r1(normDeg(+t.value)) : +t.value;
     if (st.type === 'move' && +t.dataset.i === selected) cursor = { x: st.x, y: st.y, h: st.h };
     changed();
@@ -1305,6 +1455,13 @@ document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click',
 $('btnAim').onclick = aim;
 $('btnUpdate').onclick = updateSelected;
 $('btnStartHere').onclick = setStartToCursor;
+$('branchSeg').onclick = e => {
+  const b = e.target.dataset.b;
+  if (!b || b === branch) return;
+  commitEd(); branch = b; syncEd();
+  selected = -1; cursor = poseBefore(ed, ed.steps.length);
+  changed();
+};
 $('upCell').onchange = e => { snapshot(); routine.upCell = e.target.value; changed(); };
 $('name').oninput = e => { routine.name = e.target.value; persist(); renderCode(); };
 $('name').onchange = () => { snapshot(); changed(); };
@@ -1313,8 +1470,8 @@ $('btnPlay').onclick = togglePlay;
 $('btnUndo').onclick = undo;
 $('btnRedo').onclick = redo;
 $('btnNew').onclick = () => {
-  if (routine.steps.length && !confirm('Start a new routine? (Save first if you want to keep this one.)')) return;
-  snapshot(); routine = newRoutine(routine.alliance); cursor = { ...routine.start }; selected = -1; changed();
+  if (ed.steps.length && !confirm('Start a new routine? (Save first if you want to keep this one.)')) return;
+  snapshot(); routine = newRoutine(routine.alliance); branch = 'main'; syncEd(); cursor = { ...routine.start }; selected = -1; changed();
 };
 $('btnSave').onclick = () => download(`${className(routine, routine.alliance).replace(/^(Red|Blue)/, '')}.json`,
   JSON.stringify({ v: 1, ...routine }, (k, v) => k.startsWith('_') ? undefined : v, 2));
@@ -1330,8 +1487,10 @@ $('fileOpen').onchange = async e => {
     if (!obj.start || !Array.isArray(obj.steps)) throw new Error('not a routine');
     snapshot();
     routine = { name: obj.name || 'Auto', alliance: obj.alliance === 'blue' ? 'blue' : 'red',
-      upCell: obj.upCell || DEFAULT_UP[obj.alliance === 'blue' ? 'blue' : 'red'], start: obj.start, steps: obj.steps };
-    selected = -1; cursor = poseBefore(routine, routine.steps.length); changed();
+      upCell: obj.upCell || DEFAULT_UP[obj.alliance === 'blue' ? 'blue' : 'red'], start: obj.start, steps: obj.steps,
+      ...(Array.isArray(obj.tipped) ? { tipped: obj.tipped } : {}) };
+    branch = 'main'; syncEd();
+    selected = -1; cursor = poseBefore(ed, ed.steps.length); changed();
   } catch (err) {
     alert('That file is not a routine from the Auton Creator.');
   }
@@ -1353,9 +1512,9 @@ function download(name, content) {
 }
 
 // Settings
-const ZERO_OK = ['intakeTime', 'spinup', 'feedTime', 'aimTime'];
+const ZERO_OK = ['intakeTime', 'spinup', 'feedTime', 'aimTime', 'tipTime'];
 const bindNum = (id, key) => $(id).addEventListener('change', e => { const v = +e.target.value; if (v > 0 || (v === 0 && ZERO_OK.includes(key))) settings[key] = v; changed(); });
-bindNum('sAimT', 'aimTime'); bindNum('sAimR', 'aimRange');
+bindNum('sAimT', 'aimTime'); bindNum('sAimR', 'aimRange'); bindNum('sTip', 'tipTime');
 bindNum('sLen', 'len'); bindNum('sWid', 'wid'); bindNum('sSpin', 'spinup'); bindNum('sFeed', 'feedTime'); bindNum('sIntake', 'intakeTime');
 bindNum('sVel', 'maxVel'); bindNum('sAcc', 'accel'); bindNum('sDec', 'decel'); bindNum('sAng', 'maxAngVel'); bindNum('sDrive', 'driveSpeed');
 $('sShooter').onchange = e => { settings.shooter = e.target.value; changed(); };
