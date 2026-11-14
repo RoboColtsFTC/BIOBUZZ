@@ -43,7 +43,26 @@
   .seg button.on.blue { background: var(--blue); color: #fff; }
   .seg button.on { background: var(--accent); color: #1b1b1b; }
   .fieldwrap { position: relative; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-  #field { flex: 1; width: 100%; min-height: 0; display: block; outline: none; }
+  #field { flex: 1; width: 100%; min-height: 0; display: block; outline: none; touch-action: none; }
+  button.toggle.on { background: var(--accent); color: #1b1b1b; border-color: var(--accent); }
+  /* Touch controls: on-screen drive buttons under the field */
+  .pad { display: none; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; padding: 8px;
+    border-top: 1px solid var(--line); background: var(--panel); }
+  .pad.on { display: flex; }
+  .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .sticks { display: flex; gap: 12px; align-items: center; }
+  .stick { position: relative; width: 112px; height: 112px; border-radius: 50%; background: var(--bg);
+    border: 2px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; flex: none; }
+  .stick.turn { width: 120px; height: 60px; border-radius: 30px; }
+  .stick.turn .knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+  .stick .knob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px;
+    border-radius: 50%; background: var(--panel-2); border: 2px solid var(--muted); pointer-events: none; }
+  .stick.on .knob { background: var(--accent); border-color: var(--accent); }
+  .stick .lbl { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; font-size: 11px; color: var(--muted); }
+  .stickmid { display: flex; flex-direction: column; gap: 6px; }
+  .stickmid button { min-height: 40px; padding: 4px 8px; font-size: 13px; }
+  .padacts { display: grid; grid-template-columns: repeat(3, minmax(76px, 1fr)); gap: 4px; }
+  .padacts button { min-height: 46px; padding: 4px; font-size: 13px; line-height: 1.15; }
   .status { display: flex; gap: 14px; flex-wrap: wrap; padding: 6px 12px; border-top: 1px solid var(--line);
     background: var(--panel); color: var(--muted); font-variant-numeric: tabular-nums; }
   .status b { color: var(--text); font-weight: 600; }
@@ -58,7 +77,7 @@
   h3:first-child { margin-top: 2px; }
   .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
   .row label { color: var(--muted); }
-  .addbar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .addbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .addbar button { padding: 7px 4px; }
   .wallpad { display: grid; grid-template-columns: repeat(3, 28px); grid-template-rows: repeat(2, 24px); gap: 3px; }
   .wallpad button { padding: 0; font-size: 13px; line-height: 1; }
@@ -106,9 +125,16 @@
   .grid2 { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; }
   .grid2 label { color: var(--muted); }
   @media (max-width: 900px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; height: auto; }
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 60vh auto; height: auto; }
     aside { border-left: 0; border-top: 1px solid var(--line); }
     .tab { max-height: none; }
+    .app { grid-template-rows: auto auto auto; }
+    #field { flex: none; aspect-ratio: 1; max-height: 75vh; }
+  }
+  /* Fingers need bigger targets */
+  @media (pointer: coarse) {
+    button.small { padding: 6px 10px; }
+    .wallpad { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 36px); gap: 4px; }
   }
 </style>
 </head>
@@ -122,6 +148,7 @@
       <button data-a="red">Red</button><button data-a="blue">Blue</button>
     </span>
     <button id="btnPlay" class="primary" title="Play the routine (P)">&#9654; Play</button>
+    <button id="btnTouch" class="toggle" title="Show drive buttons under the field, for phones and tablets">Touch controls</button>
     <span class="sp"></span>
     <button id="btnUndo" title="Undo (Ctrl+Z)">Undo</button>
     <button id="btnRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
@@ -133,6 +160,27 @@
 
   <div class="fieldwrap">
     <canvas id="field" tabindex="0"></canvas>
+    <div class="pad" id="pad">
+      <div class="sticks">
+        <div class="stick" id="stickDrive" title="Drag to drive. Push further to go faster."><div class="knob"></div><div class="lbl">Drive</div></div>
+        <div class="stickmid">
+          <button id="padSlow" class="toggle" title="Drive and turn slowly">Slow</button>
+          <button data-pad="frame" id="padFrame"></button>
+        </div>
+        <div class="stick turn" id="stickTurn" title="Drag left or right to turn"><div class="knob"></div><div class="lbl">Turn</div></div>
+      </div>
+      <div class="padacts">
+        <button data-add="move">+ Waypoint</button>
+        <button data-add="shoot">+ Shoot</button>
+        <button data-pad="aim">Aim</button>
+        <button data-add="shooterOn">+ Shooter on</button>
+        <button data-add="intakeOn">+ Intake on</button>
+        <button data-add="intakeOff">+ Intake off</button>
+        <button data-pad="lead">Intake lead</button>
+        <button data-pad="update">Set selected</button>
+        <button data-add="wait">+ Wait</button>
+      </div>
+    </div>
     <div class="status" id="status"></div>
   </div>
 
@@ -270,6 +318,10 @@
       <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows move, <kbd>Q</kbd>/<kbd>E</kbd> turn,
         hold <kbd>Shift</kbd> for slow. Or drag the robot; drag the dot in front of it to turn.
         Double-click the field to jump the robot there. Click the field first so it has keyboard focus.</p>
+      <p>On a phone or tablet, <b>Touch controls</b> (top bar) shows two sticks under the field, like a gamepad.
+        The left stick drives and the right stick turns; push further to go faster, and use <b>Slow</b> for small moves.
+        The Stick button picks whether pushing up drives up the screen or toward the robot's shooters.
+        Touch the field to put the robot there and drag to move it; drag the dot in front of it to turn it.</p>
       <p><b>Snap to wall</b> (the arrow pad, or <kbd>Alt</kbd>/<kbd>Option</kbd> + arrow) slides the robot straight
         until it touches that wall. Within 5&deg; of square, it squares the heading too. Press two for a corner.
         If the robot is on the start or on the selected waypoint, that moves with it. To fix a start that is close
@@ -1563,7 +1615,7 @@ function tick(now) {
     markRunning();
     busy = true;
   }
-  const slow = keys.has('shift') ? 0.25 : 1;
+  const slow = keys.has('shift') || padSlow ? 0.25 : 1;
   let fx = 0, fy = 0, turn = 0;
   if (keys.has('w') || keys.has('arrowup')) fy += 1;
   if (keys.has('s') || keys.has('arrowdown')) fy -= 1;
@@ -1571,6 +1623,7 @@ function tick(now) {
   if (keys.has('d') || keys.has('arrowright')) fx += 1;
   if (keys.has('q')) turn += 1;
   if (keys.has('e')) turn -= 1;
+  fx += stick.x; fy += stick.y; turn -= stick.t;   // right on the turn stick turns clockwise
   if (!play && (fx || fy || turn)) {
     const v = settings.driveSpeed * slow * dt;
     if (settings.driveFrame === 'robot') {
@@ -1586,7 +1639,7 @@ function tick(now) {
     busy = true;
   }
   draw();
-  if (busy || keys.size) requestAnimationFrame(tick); else looping = false;
+  if (busy || keys.size || stick.on) requestAnimationFrame(tick); else looping = false;
 }
 
 function togglePlay() {
@@ -1597,36 +1650,46 @@ function togglePlay() {
   renderHeader(); kick();
 }
 
-// Mouse
+// Mouse, finger or pen (pointer events cover all three)
 let drag = null;
 function snapV(v) { return settings.snap ? Math.round(v) : v; }
 function snapA(a) { return settings.snap ? Math.round(a / 5) * 5 : a; }
 function mousePos(e) { const r = canvas.getBoundingClientRect(); return toField(e.clientX - r.left, e.clientY - r.top); }
 
-canvas.addEventListener('mousedown', e => {
-  canvas.focus();
+canvas.addEventListener('pointerdown', e => {
+  if (drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  canvas.focus({ preventScroll: true });
   if (play) return;
-  const m = mousePos(e), tol = 9 / view.scale;
+  const touch = e.pointerType !== 'mouse';
+  const m = mousePos(e), tol = (touch ? 22 : 9) / view.scale;
   const h = rotHandle();
-  if (Math.hypot(m.x - h.x, m.y - h.y) < tol) { drag = { kind: 'rotate' }; return; }
+  if (Math.hypot(m.x - h.x, m.y - h.y) < tol) drag = { kind: 'rotate' };
   // Step markers (top-most first)
-  for (let i = ed.steps.length - 1; i >= 0; i--) {
+  for (let i = ed.steps.length - 1; i >= 0 && !drag; i--) {
     const s = ed.steps[i];
     if (s._mx !== undefined && Math.hypot(m.x - s._mx, m.y - s._my) < tol) {
       select(i);
-      if (s.type === 'move') { snapshot(); drag = { kind: 'step', i }; }
-      return;
+      if (s.type !== 'move') return;
+      snapshot(); drag = { kind: 'step', i };
     }
   }
-  if (polyContains(robotPoly(cursor, settings.len, settings.wid), m)) {
-    drag = { kind: 'cursor', dx: cursor.x - m.x, dy: cursor.y - m.y }; return;
+  if (!drag && polyContains(robotPoly(cursor, settings.len, settings.wid), m)) {
+    drag = { kind: 'cursor', dx: cursor.x - m.x, dy: cursor.y - m.y };
+  } else if (!drag && polyContains(robotPoly(routine.start, settings.len, settings.wid), m)) {
+    snapshot(); drag = { kind: 'start', dx: routine.start.x - m.x, dy: routine.start.y - m.y };
+  } else if (!drag && touch) {
+    // No double-click on a touchscreen: a touch on open field puts the robot there, and the drag goes on from it
+    cursor.x = snapV(Math.max(-HALF, Math.min(HALF, m.x))); cursor.y = snapV(Math.max(-HALF, Math.min(HALF, m.y)));
+    drag = { kind: 'cursor', dx: 0, dy: 0 };
+    draw();
   }
-  if (polyContains(robotPoly(routine.start, settings.len, settings.wid), m)) {
-    snapshot(); drag = { kind: 'start', dx: routine.start.x - m.x, dy: routine.start.y - m.y }; return;
+  if (drag) {
+    drag.pid = e.pointerId;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
   }
 });
-window.addEventListener('mousemove', e => {
-  if (!drag) return;
+canvas.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.pid) return;
   const m = mousePos(e);
   if (drag.kind === 'rotate') {
     cursor.h = normDeg(snapA(frontDeg(Math.atan2(m.y - cursor.y, m.x - cursor.x) / DEG)));
@@ -1642,16 +1705,81 @@ window.addEventListener('mousemove', e => {
   }
   draw();
 });
-window.addEventListener('mouseup', () => {
-  if (drag && (drag.kind === 'step' || drag.kind === 'start')) changed();
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.pid) return;
+  if (drag.kind === 'step' || drag.kind === 'start') changed();
   drag = null;
-});
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('dblclick', e => {
   if (play) return;
   const m = mousePos(e);
   cursor.x = snapV(Math.max(-HALF, Math.min(HALF, m.x))); cursor.y = snapV(Math.max(-HALF, Math.min(HALF, m.y)));
   draw();
 });
+
+// Touch controls: two sticks like a gamepad, plus the most used buttons
+let padSlow = false;
+function setTouch(on) {
+  $('pad').classList.toggle('on', on);
+  $('btnTouch').classList.toggle('on', on);
+  try { localStorage.setItem('autonCreator.touch', on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
+function renderPadFrame() {
+  $('padFrame').textContent = settings.driveFrame === 'robot' ? 'Stick: robot' : 'Stick: screen';
+  $('padFrame').title = settings.driveFrame === 'robot'
+    ? 'Up drives toward the shooters, left drives to the robot\'s left. Tap for up/left on the screen.'
+    : 'Up drives up the screen, left drives left. Tap to drive forward/left for the robot.';
+}
+// Sticks: -1..1 on each axis, squared so a small push gives fine control
+const stick = { x: 0, y: 0, t: 0, on: 0 };
+function bindStick(el, set) {
+  const knob = el.querySelector('.knob');
+  let pid = null;
+  const move = e => {
+    const r = el.getBoundingClientRect();
+    const rx = (r.width - knob.offsetWidth) / 2, ry = (r.height - knob.offsetHeight) / 2;
+    let dx = (e.clientX - r.left - r.width / 2) / rx, dy = (e.clientY - r.top - r.height / 2) / ry;
+    if (el.classList.contains('turn')) dy = 0;   // the turn stick only slides left and right
+    const m = Math.hypot(dx, dy);
+    if (m > 1) { dx /= m; dy /= m; }
+    knob.style.transform = `translate(${dx * rx}px, ${dy * ry}px)`;
+    const g = Math.min(1, m);
+    set(dx * g, -dy * g);
+  };
+  const end = e => {
+    if (e.pointerId !== pid) return;
+    pid = null; stick.on--; el.classList.remove('on');
+    knob.style.transform = ''; set(0, 0);
+  };
+  el.addEventListener('pointerdown', e => {
+    if (pid !== null || play) return;
+    e.preventDefault();
+    pid = e.pointerId; stick.on++; el.classList.add('on');
+    try { el.setPointerCapture(pid); } catch (err) { /* pointer already gone */ }
+    move(e); kick();
+  });
+  el.addEventListener('pointermove', e => { if (e.pointerId === pid) move(e); });
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+bindStick($('stickDrive'), (x, y) => { stick.x = x; stick.y = y; });
+bindStick($('stickTurn'), x => { stick.t = x; });
+$('padSlow').onclick = () => { padSlow = !padSlow; $('padSlow').classList.toggle('on', padSlow); };
+$('pad').addEventListener('click', e => {
+  const p = e.target.closest('[data-pad]');
+  if (!p) return;
+  if (p.dataset.pad === 'aim') aim();
+  else if (p.dataset.pad === 'lead') intakeLead();
+  else if (p.dataset.pad === 'update') updateSelected();
+  else if (p.dataset.pad === 'frame') {
+    settings.driveFrame = settings.driveFrame === 'robot' ? 'field' : 'robot';
+    persist(); renderSettings(); renderPadFrame();
+  }
+});
+$('btnTouch').onclick = () => setTouch(!$('pad').classList.contains('on'));
 function polyContains(pts, m) {
   let inside = false;
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -1755,7 +1883,7 @@ bindNum('sKeepIn', 'keepIn'); bindNum('sKeepOut', 'keepOut'); bindNum('sAimT', '
 bindNum('sLen', 'len'); bindNum('sWid', 'wid'); bindNum('sSpin', 'spinup'); bindNum('sFeed', 'feedTime'); bindNum('sIntake', 'intakeTime');
 bindNum('sVel', 'maxVel'); bindNum('sAcc', 'accel'); bindNum('sDec', 'decel'); bindNum('sAng', 'maxAngVel'); bindNum('sDrive', 'driveSpeed');
 $('sShooter').onchange = e => { settings.shooter = e.target.value; changed(); };
-$('sFrame').onchange = e => { settings.driveFrame = e.target.value; persist(); };
+$('sFrame').onchange = e => { settings.driveFrame = e.target.value; persist(); renderPadFrame(); };
 $('sSnap').onchange = e => { settings.snap = +e.target.value; persist(); };
 $('sBgOp').oninput = e => { settings.bgOpacity = +e.target.value; persist(); draw(); };
 $('btnBg').onclick = () => $('fileBg').click();
@@ -1783,6 +1911,13 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
 // Start
 load();
 renderSettings();
+renderPadFrame();
+{
+  // Touch controls start on for a touchscreen, then remember the choice
+  let t = null;
+  try { t = localStorage.getItem('autonCreator.touch'); } catch (e) { /* ignore */ }
+  setTouch(t === null ? matchMedia('(pointer: coarse)').matches : t === '1');
+}
 new ResizeObserver(resize).observe(canvas);
 changed();
 </script>
