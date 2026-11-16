@@ -37,13 +37,36 @@ public class Intake {
         this.param=param;
     }
 
+    // Auto: intake ON. Runs the intake motor and runs the feeder backward at Feed_Power_Load
+    // to pull balls in (the same as left trigger in teleop). The action finishes once both
+    // motors are up to speed, and they keep running until Intake_auto_Stop() or a shot.
+    // A shot runs the feeder forward and then stops it, so add Intake_auto() again after a
+    // shot to keep collecting. Safe to call when the intake is already on.
     public Action Intake_auto() {
         return new Action() {
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
                 // Road Runner keeps calling run() while it returns true.
-                // Returns false once the intake is up to speed, ending the action.
+                // If a shot is still running (only possible if this runs in parallel with
+                // a shot), the shooter owns the feeder: start only the intake motor and
+                // wait for the shot to finish before reversing the feeder.
+                if (launchgamepeace.state != LaunchGamePeace.State.SEQCOMPLETE) {
+                    actuators.IntakeMotor_One.runReverse();
+                    return true;
+                }
                 return Intake_run_Forward();
+            }
+        };
+    }
+
+    // Auto: intake OFF. Ramps the intake motor and the feeder down to stopped.
+    // The action finishes once both have stopped. If a shot is running, only the intake
+    // motor is stopped and the shooter stops the feeder when the shot ends.
+    public Action Intake_auto_Stop() {
+        return new Action() {
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                return Intake_run_Stop();
             }
         };
     }
@@ -63,6 +86,25 @@ public class Intake {
         boolean reverseBtn = opmode.gamepad1.left_bumper;
         boolean stopBtn = opmode.gamepad1.right_bumper;
 
+        // While a shot is in progress the shooter owns the feeder: it runs it forward to
+        // shoot, then reverse to requeue, then stops it. If the intake also commanded the
+        // feeder here, the two would fight over its direction. So during a shot: cancel any
+        // intake action, stop only the intake motor, ignore the intake buttons, and leave
+        // the feeder alone. Press intake again after the shot to start loading.
+        if (launchgamepeace.state != LaunchGamePeace.State.SEQCOMPLETE) {
+            ForwardState = State.IDLE;
+            ReverseState = State.IDLE;
+            StopState = State.IDLE;
+            actuators.IntakeMotor_One.StopMotor();
+            Forward_Debounce = forwardBtn;
+            Reverse_Debounce = reverseBtn;
+            Stop_Debounce = stopBtn;
+            opmode.telemetry.addData("Intake", "locked out: shot in progress");
+            opmode.telemetry.addData("Intake running", actuators.IntakeMotor_One.IsRunning());
+            opmode.telemetry.addData("Feed running", actuators.FeedMotor.IsRunning());
+            return;
+        }
+
         // Rising edge + nothing else in progress
         if (forwardBtn && !Forward_Debounce && allIdle()) {
             ForwardState = State.RUN;
@@ -70,7 +112,7 @@ public class Intake {
         if (reverseBtn && !Reverse_Debounce && allIdle()) {
             ReverseState = State.RUN;
         }
-        if (stopBtn && !Stop_Debounce && allIdle() || launchgamepeace.state == LaunchGamePeace.State.START) {
+        if (stopBtn && !Stop_Debounce && allIdle()) {
             StopState = State.RUN;
         }
         Forward_Debounce = forwardBtn;
@@ -97,13 +139,15 @@ public class Intake {
 
     // Call BOTH motors every loop. "a() || b()" would skip b() whenever a() is true.
     public boolean Intake_run_Forward() {
+        // Set the load power every time. Without this the feeder kept the last power set,
+        // which after a shot was Feed_Power_Launch (full power).
+        actuators.FeedMotor.SetPower(param.Feed_Power_Load);
         boolean intakeBusy = actuators.IntakeMotor_One.runReverse();
         boolean feedBusy = actuators.FeedMotor.runReverse();
         return intakeBusy || feedBusy;
     }
 
     public boolean Intake_run_Reverse() {
-        actuators.FeedMotor.SetPower(param.Feed_Power_Load);
         boolean feedBusy = actuators.FeedMotor.StopMotor();
         boolean intakeBusy = actuators.IntakeMotor_One.runForward();
         return feedBusy || intakeBusy;

@@ -9,14 +9,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.teamcode.Actuation.Actuators.AngleServo;
 import org.firstinspires.ftc.teamcode.Actuation.Actuators.ContinuousMotor;
 import org.firstinspires.ftc.teamcode.Actuation.Actuators.ContinuousServo;
-import org.firstinspires.ftc.teamcode.Actuation.Actuators.DualMotor;
-import org.firstinspires.ftc.teamcode.Actuation.Actuators.FeedControl;
-import org.firstinspires.ftc.teamcode.Actuation.Actuators.SpindexerControl;
 import org.firstinspires.ftc.teamcode.LightsandIndicators.GoBuildaPWMLight;
-import org.firstinspires.ftc.teamcode.Perception.ColorDetector;
-
-import java.util.Arrays;
-import java.util.List;
 
 // This class is used for initializing all the actuators used in the Decode Game.
 // It allows them to be initialized once and shared between different classes
@@ -54,6 +47,14 @@ public class ActuatorControl {
     //           plus the fix for changing motor direction in the middle of a ramp.
     public static boolean ORIGINAL_SHOOTER = false;
 
+    // Launcher control selector:
+    //   true  = velocity control: the hub's PID holds each flywheel at its target RPM
+    //           (Nectar_Target_RPM / Pollen_Target_RPM), so the speed doesn't drop as the
+    //           battery drains and comes back faster after each ball.
+    //   false = power control, as before (Launchmmotor_One_Power / Launchmmotor_Two_Power).
+    // Can be changed in FTC Dashboard while the robot runs.
+    public static boolean LAUNCH_VELOCITY_CONTROL = true;
+
     public static class Params {
 
         // Launchgate parameters
@@ -63,14 +64,39 @@ public class ActuatorControl {
 
         // Intake Motor Parameters
         public double IntakeMotor_Power = 1;
-        // Nectar
-        public double Launchmmotor_One_Power = .73;  // ticks per second
-        public double Nectar_Ready_RPM = 3400;   // 95% of 3686 settled at .73 (2026-11-06, 11.8 V)
+        // ---- Launcher: Nectar = "LaunchMotor 1", Pollen = "LaunchMotor 2" ----
+        // Everything below can be changed live in FTC Dashboard (ActuatorControl > param)
+        // and takes effect on the next loop, so you can tune with the flywheels running.
 
-        // Pollen
+        // Velocity control (LAUNCH_VELOCITY_CONTROL = true)
+        // Target speeds in RPM. Starting values are close to what .73 / .72 power gave;
+        // check them with the shot logs and adjust for distance.
+        public double Nectar_Target_RPM = 3700;
+        public double Pollen_Target_RPM = 3500;
+        // A shot waits until each flywheel measures at least this fraction of its target.
+        public double Launch_Ready_Fraction = 0.95;
+        // How fast the target speed ramps, in RPM per second.
+        public double Launch_RampUp_RPMps = 6000;
+        public double Launch_RampDown_RPMps = 3000;
+        // Velocity PIDF. While Launch_Use_Custom_PIDF is false the hub keeps its built-in
+        // values (shown on telemetry as "Nectar PIDF" / "Pollen PIDF"). Set it true to use
+        // the values below. Starting point: F = 32767 / (ticks/sec at full power),
+        // P = F / 10, I = P / 10, D = 0. 13 assumes about 5000 RPM (2350 ticks/sec) at full power.
+        public boolean Launch_Use_Custom_PIDF = false;
+        public double Nectar_P = 1.3;
+        public double Nectar_I = 0.13;
+        public double Nectar_D = 0;
+        public double Nectar_F = 13;
+        public double Pollen_P = 1.3;
+        public double Pollen_I = 0.13;
+        public double Pollen_D = 0;
+        public double Pollen_F = 13;
+
+        // Power control (LAUNCH_VELOCITY_CONTROL = false), the old way
+        public double Launchmmotor_One_Power = .73;
+        public double Nectar_Ready_RPM = 3400;   // 95% of 3686 settled at .73 (2026-11-06, 11.8 V)
         public double Launchmmotor_Two_Power = .72;
         public double Pollen_Ready_RPM = 3300;   // 95% of 4286 settled at .85 (2026-11-06, 11.8 V)
-        // Shoot anyway after this long (ms), so a bad encoder can't block shooting.
 
         // Feed control Parameters
 
@@ -91,6 +117,7 @@ public class ActuatorControl {
         // 0 = only wait for the power ramp (the old behavior).
 
 
+        // Shoot anyway after this long (ms), so a bad encoder can't block shooting.
         public double Spinup_Timeout_ms = 2000;
     }
 

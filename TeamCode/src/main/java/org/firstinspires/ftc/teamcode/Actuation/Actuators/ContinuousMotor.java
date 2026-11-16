@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.Actuation.Actuators;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.Actuation.ActuatorControl;
 
@@ -21,11 +23,22 @@ public class ContinuousMotor {
     // Power mode -> 0..1, velocity mode -> ticks/sec.
     private double currentOutput = 0;
 
-    // Ramp step sizes (applied once per loop / per call)
+    // Power ramp: step size applied once per call (once per loop).
     private double RampUpStepSize = .2;          // power per call
     private double RampDownStepSize = .2;
-    private double VelRampUpStepSize = 500;      // ticks/sec per call
-    private double VelRampDownStepSize = 500;
+    // Velocity ramp: rate in RPM per SECOND, so it ramps at the same speed however
+    // fast the loop runs. 6000 RPM/s reaches 3600 RPM in 0.6 s.
+    private double VelRampUp_RPMps = 6000;
+    private double VelRampDown_RPMps = 3000;
+    private final ElapsedTime rampTimer = new ElapsedTime();
+    // Longest time step the velocity ramp will take in one call, so a long pause
+    // between calls (or the first call) can't jump the setpoint.
+    private static final double MAX_RAMP_DT = 0.1;   // seconds
+
+    // Last PIDF sent with SetVelocityPIDF, so it is only sent to the hub when it changes.
+    private double lastP = Double.NaN, lastI = Double.NaN, lastD = Double.NaN, lastF = Double.NaN;
+    // PIDF read back from the hub, cached so telemetry doesn't read the hub every loop.
+    private PIDFCoefficients cachedPIDF = null;
 
     private static final double TICKS_PER_REV = 28;       // bare motor encoder (matches GetVelocity)
     private static final double VELOCITY_TOLERANCE = 20;  // ticks/sec
@@ -107,11 +120,42 @@ public class ContinuousMotor {
         SetVelocity(rpm * TICKS_PER_REV / 60.0);
     }
 
-    public void SetRampSteps(double powerUp, double powerDown, double velUp, double velDown) {
+    /** powerUp/powerDown: power per call. velUpRPMps/velDownRPMps: RPM per second. */
+    public void SetRampSteps(double powerUp, double powerDown, double velUpRPMps, double velDownRPMps) {
         RampUpStepSize = powerUp;
         RampDownStepSize = powerDown;
-        VelRampUpStepSize = velUp;
-        VelRampDownStepSize = velDown;
+        SetVelocityRamp(velUpRPMps, velDownRPMps);
+    }
+
+    /** Velocity ramp rates in RPM per second. 0 or less = no ramp (jump straight to the target). */
+    public void SetVelocityRamp(double upRPMps, double downRPMps) {
+        VelRampUp_RPMps = upRPMps;
+        VelRampDown_RPMps = downRPMps;
+    }
+
+    /**
+     * Sets the Control/Expansion Hub's velocity PIDF for this motor (used in velocity mode).
+     * Only sends to the hub when a value changes, so it is fine to call every loop.
+     * Starting point: F = 32767 / (max ticks/sec at full power), P = F / 10, I = P / 10, D = 0.
+     */
+    public void SetVelocityPIDF(double p, double i, double d, double f) {
+        if (p == lastP && i == lastI && d == lastD && f == lastF) {
+            return;
+        }
+        motor.setVelocityPIDFCoefficients(p, i, d, f);
+        cachedPIDF = null;   // read the new values back next time they are asked for
+        lastP = p;
+        lastI = i;
+        lastD = d;
+        lastF = f;
+    }
+
+    /** The velocity PIDF the hub is using. Read from the hub once, then again only after a change. */
+    public PIDFCoefficients GetVelocityPIDF() {
+        if (cachedPIDF == null) {
+            cachedPIDF = motor.getPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        }
+        return cachedPIDF;
     }
 
     // ---------------- Feedback ----------------
@@ -123,6 +167,28 @@ public class ContinuousMotor {
 
     public boolean isMotorAtPower() {
         return Math.abs(motor.getPower() - targetPower) < POWER_TOLERANCE;
+    }
+
+    /**
+     * True when the ramp has finished and the motor is being commanded at its target
+     * (power or velocity). It does not say the wheel has reached that speed: use
+     * GetVelocity for that.
+     */
+    public boolean IsAtTarget() {
+        return isrunning && currentOutput == target();
+    }
+
+    /** Target velocity in RPM (velocity mode). */
+    public double GetTargetVelocityRPM() {
+        return targetVelocity * 60 / TICKS_PER_REV;
+    }
+
+    /**
+     * The velocity being commanded right now in RPM, which moves toward the target during
+     * a ramp. Returns 0 in power mode. Plot this against GetVelocity to tune the PIDF.
+     */
+    public double GetSetpointRPM() {
+        return isVelocityMode ? currentOutput * 60 / TICKS_PER_REV : 0;
     }
 
     /** Measured velocity in RPM. */
@@ -158,12 +224,28 @@ public class ContinuousMotor {
         return isVelocityMode ? targetVelocity : targetPower;
     }
 
-    private double upStep() {
-        return isVelocityMode ? VelRampUpStepSize : RampUpStepSize;
+    // Ramp step for this call. Power: a fixed step per call. Velocity: rate x time since
+    // the last step, converted from RPM to ticks/sec.
+    private double upStep(double dt) {
+        return isVelocityMode ? velStep(VelRampUp_RPMps, dt) : RampUpStepSize;
     }
 
-    private double downStep() {
-        return isVelocityMode ? VelRampDownStepSize : RampDownStepSize;
+    private double downStep(double dt) {
+        return isVelocityMode ? velStep(VelRampDown_RPMps, dt) : RampDownStepSize;
+    }
+
+    private static double velStep(double rpmPerSec, double dt) {
+        if (rpmPerSec <= 0) {
+            return Double.MAX_VALUE;   // no ramp
+        }
+        return rpmPerSec * TICKS_PER_REV / 60.0 * dt;
+    }
+
+    /** Seconds since the last ramp step (capped), and restarts the timer. */
+    private double rampDt() {
+        double dt = Math.min(rampTimer.seconds(), MAX_RAMP_DT);
+        rampTimer.reset();
+        return dt;
     }
 
     /** Moves 'from' one step toward 'to' without overshooting. */
@@ -202,11 +284,13 @@ public class ContinuousMotor {
                     return false;   // already at target
                 }
                 MotorState = State.EXICUTING;
+                rampTimer.reset();
                 return true;
 
             case EXICUTING:
                 double tgt = target();
-                double next = stepToward(currentOutput, tgt, upStep(), downStep());
+                double dt = rampDt();
+                double next = stepToward(currentOutput, tgt, upStep(dt), downStep(dt));
                 applyOutput(next);
                 if (next == tgt) {   // exact: stepToward clamps to the target
                     isrunning = true;
@@ -231,10 +315,12 @@ public class ContinuousMotor {
                     return false;   // already stopped
                 }
                 MotorState = State.EXICUTING;
+                rampTimer.reset();
                 return true;
 
             case EXICUTING:
-                double next = stepToward(currentOutput, 0, upStep(), downStep());
+                double dt = rampDt();
+                double next = stepToward(currentOutput, 0, upStep(dt), downStep(dt));
                 applyOutput(next);
                 if (next == 0) {
                     isrunning = false;

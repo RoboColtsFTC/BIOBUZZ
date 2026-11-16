@@ -67,7 +67,7 @@ public class AprilTag {
     //      numbers in below and commit them.
     public static boolean MANUAL_EXPOSURE = true;
     public static int EXPOSURE_MS = 3;   // tuned at school 2026-11-05
-    public static int GAIN = 60;
+    public static int GAIN = 100;
 
     // What was last sent to the camera, so we only send changes.
     private boolean appliedManual = false;
