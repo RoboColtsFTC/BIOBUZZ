@@ -72,7 +72,7 @@ public class ActuatorControl {
         // Target speeds in RPM. Starting values are close to what .73 / .72 power gave;
         // check them with the shot logs and adjust for distance.
         public double Nectar_Target_RPM = 3700;
-        public double Pollen_Target_RPM = 3500;
+        public double Pollen_Target_RPM = 3655;
         // A shot waits until each flywheel measures at least this fraction of its target.
         public double Launch_Ready_Fraction = 0.95;
         // How fast the target speed ramps, in RPM per second.
@@ -87,16 +87,16 @@ public class ActuatorControl {
         public double Nectar_I = 0.13;
         public double Nectar_D = 0;
         public double Nectar_F = 13;
-        public double Pollen_P = 1.3;
-        public double Pollen_I = 0.13;
+        public double Pollen_P = 36;
+        public double Pollen_I = 0.6;
         public double Pollen_D = 0;
-        public double Pollen_F = 13;
+        public double Pollen_F = 12;
 
         // Power control (LAUNCH_VELOCITY_CONTROL = false), the old way
         public double Launchmmotor_One_Power = .73;
         public double Nectar_Ready_RPM = 3400;   // 95% of 3686 settled at .73 (2026-11-06, 11.8 V)
         public double Launchmmotor_Two_Power = .72;
-        public double Pollen_Ready_RPM = 3300;   // 95% of 4286 settled at .85 (2026-11-06, 11.8 V)
+        public double Pollen_Ready_RPM = 3655;   // 95% of 4286 settled at .85 (2026-11-06, 11.8 V)
 
         // Feed control Parameters
 
