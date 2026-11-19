@@ -28,9 +28,10 @@ public final class RedAutoLaunch extends LinearOpMode {
                 //   .turn(Math.toRadians(45))
                 //.strafeToLinearHeading(new Vector2d(15,0), Math.toRadians(0)) // move from start into shooting position
                 .stopAndAdd(robot.actuatorcontrol.launchgamepeace.Launch_Auto())
-//               .stopAndAdd(robot.actuatorcontrol.intake.Intake_auto())
-//               .waitSeconds(3)
-//                .strafeToLinearHeading(new Vector2d(38,0), Math.toRadians(0))
+                .stopAndAdd(robot.actuatorcontrol.intake.Intake_auto()) // intake on
+                .strafeToLinearHeading(new Vector2d(46,0), Math.toRadians(0))
+                .waitSeconds(3)
+                .stopAndAdd(robot.actuatorcontrol.intake.Intake_auto_Stop()) // intake off
                 .strafeToLinearHeading(new Vector2d(34,0), Math.toRadians(0))
                 .strafeToLinearHeading(new Vector2d(38,-85), Math.toRadians(0))
                 .strafeToLinearHeading(new Vector2d(42,-85), Math.toRadians(0))
