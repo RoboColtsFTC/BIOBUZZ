@@ -21,7 +21,6 @@ public final class RedAutoLaunch extends LinearOpMode {
 
         waitForStart();
         /* -------------------------------------------------------------------------------------- */
-
         // beginPose = new Pose2d(0, 0, Math.toRadians(0));
         drive.localizer.setPose(beginPose);
         Actions.runBlocking(drive.actionBuilder(beginPose)            //  .strafeToLinearHeading(new Vector2d(0,-10), Math.toRadians(-90))
