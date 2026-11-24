@@ -31,7 +31,9 @@ public class ActuatorControl {
         public DigitalChannel BeamBrake;
 
     }
-
+    // true = record each shot to the shot log, false = don't log.
+    public static boolean SHOT_LOGGER_ENABLED = false;
+    
     public Actuators actuators = new Actuators();
 
     public Intake intake;

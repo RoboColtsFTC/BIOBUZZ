@@ -278,7 +278,9 @@ public class LaunchGamePeace {
             busy = LaunchGamePeace_run_Requeue();
         }
         // Teleop and every auto shot come through here, so all shots get recorded.
-        shotLogger.update(state != State.SEQCOMPLETE, state, StartState);
+        if (ActuatorControl.SHOT_LOGGER_ENABLED) {
+            shotLogger.update(state != State.SEQCOMPLETE, state, StartState);
+        }
         return busy;
     }
 
