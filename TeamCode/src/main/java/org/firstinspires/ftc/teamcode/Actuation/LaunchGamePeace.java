@@ -22,6 +22,9 @@ public class LaunchGamePeace {
     private final ElapsedTime StopSEQDelay = new ElapsedTime();
     private final ElapsedTime StartSEQDelay = new ElapsedTime();
     private final ElapsedTime RequeueTimer = new ElapsedTime();
+    private final ElapsedTime PresetTimer = new ElapsedTime();
+    // True once the pre-set reverse is finished and the feeder has stopped.
+    private boolean presetDone = true;
 
     private double LauncherRuntime_ms = 4000;
     private double StopSEQDelay_ms = 0;
@@ -46,6 +49,7 @@ public class LaunchGamePeace {
         STOP,
         WAIT,
         REQUEUE,
+        PRESET,
         SEQCOMPLETE
     }
 
@@ -363,15 +367,35 @@ public class LaunchGamePeace {
         switch (StartState) {
             case START:
 //                actuators.LaunchGate.SetSecond();
+                // First loop of a shot: start the pre-set reverse (if turned on).
+                // Teleop, Launch_Auto and Shoot_Auto all set StartState = START, so this
+                // runs for every shot.
+                PresetTimer.reset();
+                presetDone = param.Feed_Preset_ms <= 0;
+                StartState = State.PRESET;
+                // fall through so the spin-up check also runs this loop
 
-                // Wait until both flywheels are really at speed (measured by encoder),
-                // not just until the power ramp is done. LauncherRuntime was reset when
-                // shoot was pressed, so it times the spin-up for the timeout.
+            case PRESET:
+                // 1) Pre-set: run the feeder backward for Feed_Preset_ms, then ramp it to a
+                //    full stop so the balls sit still against the same spot.
+                if (!presetDone) {
+                    if (PresetTimer.milliseconds() < param.Feed_Preset_ms) {
+                        actuators.FeedMotor.SetPower(param.Feed_Power_Preset);
+                        actuators.FeedMotor.runReverse();
+                    } else if (!actuators.FeedMotor.StopMotor()) {
+                        presetDone = true;
+                    }
+                }
+
+                // 2) At the same time, wait until both flywheels are really at speed
+                //    (measured by encoder), not just until the power ramp is done.
+                //    LauncherRuntime was reset when shoot was pressed, so it times the
+                //    spin-up for the timeout. The timeout never skips the pre-set.
                 boolean readyone = launchReady(actuators.LaunchMotor_One, param.Nectar_Ready_RPM);
                 boolean readytwo = launchReady(actuators.LaunchMotor_Two, param.Pollen_Ready_RPM);
-                if ((readyone && readytwo) || LauncherRuntime.milliseconds() > param.Spinup_Timeout_ms) {
+                if (presetDone
+                        && ((readyone && readytwo) || LauncherRuntime.milliseconds() > param.Spinup_Timeout_ms)) {
                     StartState = State.WAIT;
-                    StartSEQDelay.reset();
                     StartSEQDelay.reset();
                 }
                 break;

@@ -82,7 +82,7 @@ public class ActuatorControl {
         // values (shown on telemetry as "Nectar PIDF" / "Pollen PIDF"). Set it true to use
         // the values below. Starting point: F = 32767 / (ticks/sec at full power),
         // P = F / 10, I = P / 10, D = 0. 13 assumes about 5000 RPM (2350 ticks/sec) at full power.
-        public boolean Launch_Use_Custom_PIDF = false;
+        public boolean Launch_Use_Custom_PIDF = true;
         public double Nectar_P = 1.3;
         public double Nectar_I = 0.13;
         public double Nectar_D = 0;
@@ -96,13 +96,13 @@ public class ActuatorControl {
         public double Launchmmotor_One_Power = .73;
         public double Nectar_Ready_RPM = 3400;   // 95% of 3686 settled at .73 (2026-11-06, 11.8 V)
         public double Launchmmotor_Two_Power = .72;
-        public double Pollen_Ready_RPM = 3655;   // 95% of 4286 settled at .85 (2026-11-06, 11.8 V)
+        public double Pollen_Ready_RPM = 3657;   // 95% of 4286 settled at .85 (2026-11-06, 11.8 V)
 
         // Feed control Parameters
 
         public double Feed_Power_Load = .5;
 
-        public double Feed_Power_Launch=1;
+        public double Feed_Power_Launch=.5;
 
         // Requeue shooter timing (ms). Only used when ORIGINAL_SHOOTER is false.
         // Feed_Launch_ms: how long the feeder pushes balls out. Set it just past the time
@@ -110,6 +110,13 @@ public class ActuatorControl {
         public double Feed_Launch_ms = 1500;
         // Feed_Requeue_ms: how long the feeder then runs backward to pull back a stuck ball.
         public double Feed_Requeue_ms = 750;
+
+        // Pre-set: at the start of every shot the feeder runs backward for Feed_Preset_ms,
+        // then stops, so the balls start from the same spot each time. This runs while the
+        // flywheels spin up. The feeder ramps (about 0.2 power per loop), so very short
+        // times barely move the balls; start around 200 ms. 0 = off (the old behavior).
+        public double Feed_Preset_ms = 200;
+        public double Feed_Power_Preset = .3;
 
         // Spin-up check: a shot waits until each flywheel reaches this speed before feeding.
         // RPM, read from the "Nectar vel" / "Pollen vel" telemetry: spin up with A, let it
@@ -140,18 +147,18 @@ public class ActuatorControl {
         actuators.FeedMotor.SetEnconding(false);
 
         // Nectar
-       actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
+        actuators.LaunchMotor_One = new ContinuousMotor(hardwaremap, "LaunchMotor 1", param.Launchmmotor_One_Power);
         actuators.LaunchMotor_One.SetReverse();
         // Pollen
-       actuators.LaunchMotor_Two = new ContinuousMotor(hardwaremap, "LaunchMotor 2", param.Launchmmotor_Two_Power);
+        actuators.LaunchMotor_Two = new ContinuousMotor(hardwaremap, "LaunchMotor 2", param.Launchmmotor_Two_Power);
 
 
-       actuators.BeamBrake = hardwaremap.get(DigitalChannel.class, "BeamBreak");
-       actuators.BeamBrake.setMode(DigitalChannel.Mode.INPUT);
+        actuators.BeamBrake = hardwaremap.get(DigitalChannel.class, "BeamBreak");
+        actuators.BeamBrake.setMode(DigitalChannel.Mode.INPUT);
 
 
-       launchgamepeace = new LaunchGamePeace(this.opmode, actuators,param);
-       intake = new Intake(this.opmode, actuators,launchgamepeace,param);
+        launchgamepeace = new LaunchGamePeace(this.opmode, actuators,param);
+        intake = new Intake(this.opmode, actuators,launchgamepeace,param);
 
 //        LockIndicator1= new GoBuildaPWMLight(hardwaremap,"light1");
 //        LockIndicator2= new GoBuildaPWMLight(hardwaremap,"light2");
@@ -167,7 +174,6 @@ public class ActuatorControl {
         launchgamepeace.run();
 
 
-   }
+    }
 
 }
-

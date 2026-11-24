@@ -23,6 +23,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 @Config
@@ -69,6 +70,18 @@ public class AprilTag {
     public static int EXPOSURE_MS = 3;   // tuned at school 2026-11-05
     public static int GAIN = 100;
 
+    // ---------------- Detection filter settings ----------------
+    // MAX_ROLL_DEG: clusters whose roll is bigger than this (either direction)
+    //   are ignored, to throw out upside-down / bad pose readings.
+    //   If RED shows "REJECTED (roll)" in telemetry with roll near +/-180,
+    //   the red tags are mounted/defined rotated: raise this to 180 in
+    //   Dashboard to test, then fix the mounting or keep the new value.
+    public static double MAX_ROLL_DEG = 90;
+
+    // SHOW_REJECTED: true = print every detection that gets thrown away and why.
+    //   Leave on while debugging, turn off for matches to keep telemetry short.
+    public static boolean SHOW_REJECTED = true;
+
     // What was last sent to the camera, so we only send changes.
     private boolean appliedManual = false;
     private int appliedExposureMs = -1;
@@ -97,14 +110,14 @@ public class AprilTag {
     }
 
     public void run() {
-            if (MANUAL_EXPOSURE) {
-                UpdateCameraExposure();
-            } else {
-                RestoreAutoExposure();
-            }
-            ProcessAprilTags();
-            // Push telemetry to the Driver Station.
-             //opMode.telemetry.update();
+        if (MANUAL_EXPOSURE) {
+            UpdateCameraExposure();
+        } else {
+            RestoreAutoExposure();
+        }
+        ProcessAprilTags();
+        // Push telemetry to the Driver Station.
+        //opMode.telemetry.update();
 
     }
 
@@ -147,7 +160,7 @@ public class AprilTag {
 //                //        Skew: 0
 //                //          Mean Square Reprojection Error: 0.413669 pixels
 //
-    //           .setLensIntrinsics(502.204, 502.204, 672.7611, 428.515)
+                //           .setLensIntrinsics(502.204, 502.204, 672.7611, 428.515)
                 .build();
 
         // Adjust Image Decimation to trade-off detection-range for detection-rate.
@@ -158,19 +171,12 @@ public class AprilTag {
         // Decimation = 3 ..  Detect 5" Tag from 10 feet away at 30 Frames Per Second (default)
         // Note: Decimation can be changed on-the-fly to adapt during a match.
         //aprilTag.setDecimation(3);
-        // **-- YOUR CALIBRATION VALUES GO HERE --**
 
 
         // Create the vision portal by using a builder.
-        // Get camera from hardware map
-        // Setting resolution
-        // Set stream format to MJPEG for higher FPS
-        // Enable live view on Robot Controller screen
-        // Automatically stop live view when OpMode is stopped
-        // Set and enable the processor.
         visionPortal = new VisionPortal.Builder()
                 .setCamera(opMode.hardwareMap.get(WebcamName.class, "Webcam 1")) // Get camera from hardware map
-            //    .setCameraResolution(new Size(1280, 800))
+                //    .setCameraResolution(new Size(1280, 800))
                 //.setCameraResolution(new Size(800, 600))
                 .setCameraResolution(new Size(640, 480)) // Setting resolution
                 .setStreamFormat(VisionPortal.StreamFormat.MJPEG) // Set stream format to MJPEG for higher FPS
@@ -180,21 +186,6 @@ public class AprilTag {
                 .addProcessor(aprilTag)    // Set and enable the processor.
                 .build(); // Build the VisionPortal
 
-        // Choose a camera resolution. Not all cameras support all resolutions.
-        //builder.setCameraResolution(new Size(640, 480));
-
-        // Enable the RC preview (LiveView).  Set "false" to omit camera monitoring.
-        //builder.enableLiveView(true);
-
-        // Set the stream format; MJPEG uses less bandwidth than default YUY2.
-        //builder.setStreamFormat(VisionPortal.StreamFormat.YUY2);
-
-        // Choose whether or not LiveView stops if no processors are enabled.
-        // If set "true", monitor shows solid orange screen if no processors enabled.
-        // If set "false", monitor shows camera view without annotations.
-        //builder.setAutoStopLiveView(false);
-        // Disable or re-enable the aprilTag processor at any time.
-        //visionPortal.setProcessorEnabled(aprilTag, true);
         //FtcDashboard.getInstance().startCameraStream(visionPortal, 0);
     }   // end method initAprilTag()
 
@@ -251,55 +242,70 @@ public class AprilTag {
 
     // Process Detections and storing in AprilTagData to be used with other classes
     private void ProcessDetections(AprilTagDetection detection, AprilTagData Data) {
-        // Step through the list of detections and display info for each one.
-        if (detection instanceof AprilTagClusterDetection) {
-            AprilTagClusterDetection cell = (AprilTagClusterDetection) detection;
-
-            if (Math.abs(cell.ftcPose.roll) <= 90) {
-                if(cell.metadata.name.startsWith("BLUE")) {
-                    if (!detectionState.isBlueGoalAprilTagDetected || cell.ftcPose.range < Data.Blue.Range) {
-                        Data.SetBlue(cell.ftcPose.range, cell.ftcPose.bearing);
-                        opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Blue.Range);
-                        opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Blue.Bearing);
-                        detectionState.isBlueGoalAprilTagDetected = true;
-                    }
-
-                }
-                else if (cell.metadata.name.startsWith("RED")) {
-                    if (!detectionState.isRedGoalAprilTagDetected || cell.ftcPose.range < Data.Red.Range) {
-                        Data.SetRed(cell.ftcPose.range, cell.ftcPose.bearing);
-                        opMode.telemetry.addData("Rangeavg", "%5.1f inches", Data.Red.Range);
-                        opMode.telemetry.addData("Bearingavg", "%3.0f degrees", Data.Red.Bearing);
-                        detectionState.isRedGoalAprilTagDetected=true;
-                    }
-                }
-
+        // Only clusters (groups of tags defined in the game tag library) are used for aiming.
+        if (!(detection instanceof AprilTagClusterDetection)) {
+            if (SHOW_REJECTED && detection instanceof AprilTagSingleDetection) {
+                opMode.telemetry.addData("REJECTED (not a cluster)", "tag ID %d",
+                        ((AprilTagSingleDetection) detection).id);
             }
+            return;
+        }
+        AprilTagClusterDetection cell = (AprilTagClusterDetection) detection;
+
+        // No name means the tag library has no info for it; no pose means the SDK
+        // could not work out range/bearing. Either way we cannot aim with it.
+        if (cell.metadata == null || cell.metadata.name == null) {
+            if (SHOW_REJECTED) opMode.telemetry.addLine("REJECTED (no metadata name)");
+            return;
+        }
+        if (cell.ftcPose == null) {
+            if (SHOW_REJECTED) opMode.telemetry.addData("REJECTED (no pose)", cell.metadata.name);
+            return;
         }
 
+        if (Math.abs(cell.ftcPose.roll) > MAX_ROLL_DEG) {
+            if (SHOW_REJECTED) {
+                opMode.telemetry.addData("REJECTED (roll)", "%s roll=%.0f deg (limit %.0f)",
+                        cell.metadata.name, cell.ftcPose.roll, MAX_ROLL_DEG);
+            }
+            return;
+        }
 
+        // Case-insensitive so "RED", "Red Goal", "red_goal" all match.
+        String name = cell.metadata.name.trim().toUpperCase(Locale.US);
 
-}
+        if (name.startsWith("BLUE")) {
+            if (!detectionState.isBlueGoalAprilTagDetected || cell.ftcPose.range < Data.Blue.Range) {
+                Data.SetBlue(cell.ftcPose.range, cell.ftcPose.bearing);
+                opMode.telemetry.addData("Blue Range", "%5.1f inches", Data.Blue.Range);
+                opMode.telemetry.addData("Blue Bearing", "%3.0f degrees", Data.Blue.Bearing);
+                detectionState.isBlueGoalAprilTagDetected = true;
+            }
+        } else if (name.startsWith("RED")) {
+            if (!detectionState.isRedGoalAprilTagDetected || cell.ftcPose.range < Data.Red.Range) {
+                Data.SetRed(cell.ftcPose.range, cell.ftcPose.bearing);
+                opMode.telemetry.addData("Red Range", "%5.1f inches", Data.Red.Range);
+                opMode.telemetry.addData("Red Bearing", "%3.0f degrees", Data.Red.Bearing);
+                detectionState.isRedGoalAprilTagDetected = true;
+            }
+        } else if (SHOW_REJECTED) {
+            opMode.telemetry.addData("REJECTED (name)", "\"%s\" doesn't start with RED or BLUE",
+                    cell.metadata.name);
+        }
+    }
 
     private void ProcessAprilTags() {
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
         opMode.telemetry.addData("# AprilTags Detected...", currentDetections.size());
         opMode.telemetry.addData("Camera", "%s, exposure %d ms, gain %d",
                 MANUAL_EXPOSURE ? "MANUAL" : "AUTO", EXPOSURE_MS, GAIN);
-        //opMode.telemetry.addData("camera", visionPortal.getCameraState());
-        //opMode.telemetry.addData("FPS", visionPortal.getFps());
-        detectionState.ResetStates();
-        if (currentDetections.isEmpty()){
-            detectionState.isAnyTagDetected = false;
 
-       }else{
-            detectionState.isAnyTagDetected = true;
-            detectionState.isBlueGoalAprilTagDetected=false;
-            detectionState.isRedGoalAprilTagDetected=false;
-            for (AprilTagDetection detection : currentDetections) {
-                ProcessDetections(detection, Data);
-                telemetryAprilTag(detection);
-            }
+        detectionState.ResetStates();
+        detectionState.isAnyTagDetected = !currentDetections.isEmpty();
+
+        for (AprilTagDetection detection : currentDetections) {
+            ProcessDetections(detection, Data);
+            telemetryAprilTag(detection);
         }
 
         if (!detectionState.isRedGoalAprilTagDetected){
@@ -313,29 +319,28 @@ public class AprilTag {
                 detectionState.isRedGoalAprilTagDetected ? "SEEN" : "NONE", Data.Red.Bearing);
         opMode.telemetry.addData("Aim BLUE", "%s bearing %3.1f deg",
                 detectionState.isBlueGoalAprilTagDetected ? "SEEN" : "NONE", Data.Blue.Bearing);
+        opMode.telemetry.addData("FPS", "%.1f", visionPortal.getFps());
 
-
-        Data.detectionState= detectionState;
-
-//        // Add "key" information to telemetry
-//        telemetry.addLine("\nkey:\nXYZ = X (Right), Y (Forward), Z (Up) dist.");
-//        telemetry.addLine("PRY = Pitch, Roll & Yaw (XYZ Rotation)");
-
+        Data.detectionState = detectionState;
     }
 
     // function that displays telemetry on the drivers station
     private void telemetryAprilTag (AprilTagDetection detection) {
         if (detection instanceof AprilTagClusterDetection) {
             AprilTagClusterDetection cell = (AprilTagClusterDetection) detection;
-            opMode.telemetry.addLine(String.format("n==== %s (%d%% of tags seen)",cell.metadata.name, cell.percentClusterFound));
-            opMode.telemetry.addData("Range","%5.1f inches", cell.ftcPose.range);
-            opMode.telemetry.addData("Bearing", "%3.0f degrees", cell.ftcPose.bearing);
-            opMode.telemetry.addData("Roll", "%3.0f degrees", cell.ftcPose.roll);
-        } else {
+            String name = (cell.metadata != null) ? cell.metadata.name : "(no name)";
+            opMode.telemetry.addLine(String.format(Locale.US, "\n==== %s (%d%% of tags seen)",
+                    name, cell.percentClusterFound));
+            if (cell.ftcPose != null) {
+                opMode.telemetry.addData("Range", "%5.1f inches", cell.ftcPose.range);
+                opMode.telemetry.addData("Bearing", "%3.0f degrees", cell.ftcPose.bearing);
+                opMode.telemetry.addData("Roll", "%3.0f degrees", cell.ftcPose.roll);
+            }
+        } else if (detection instanceof AprilTagSingleDetection) {
             AprilTagSingleDetection tag = (AprilTagSingleDetection) detection;
-            opMode. telemetry.addLine(String.format("/n====(ID %d) not part of a cluster", tag.id));
-            opMode.telemetry.addLine(String.format("Center %6.0f %6.0f    (pixels)",tag.center.x,tag.center.y));
+            opMode.telemetry.addLine(String.format(Locale.US, "\n==== (ID %d) not part of a cluster", tag.id));
+            opMode.telemetry.addLine(String.format(Locale.US, "Center %6.0f %6.0f    (pixels)",
+                    tag.center.x, tag.center.y));
         }
-        opMode.telemetry.addData("FPS=",visionPortal.getFps());
     }
 }// end aprilTag class
